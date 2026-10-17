@@ -1,6 +1,6 @@
 # 实际验证状态
 
-更新日期：2026-10-18（Asia/Shanghai）。目标是 N5105 / ImmortalWrt / Docker 上兼容当前 Steam 客户端的独立服务器。**V6 已通过单客户端 LAN Mod 大厅加入和首关启动；只读客户端遥测确认 golemplains2、clientSceneReady、runActive，并收到玩家及怪物对象。该结果尚不证明可视化游玩、伤害、拾取或同步质量。V6 已受控停止，增加服务端实体遥测的 V7 已由普通 Compose 配置重建，并实际完成加载、host 和 Steam 登录，当前大厅 healthy；V7客户端加入及首关仍在独立复测，不能沿用V6结果。双客户端、WAN 和占用对局长时验收仍未完成。** 以下保留历史失败与当前结果；容器健康和结构测试不构成稳定多人游戏就绪。
+更新日期：2026-10-18（Asia/Shanghai）。目标是 N5105 / ImmortalWrt / Docker 上兼容当前 Steam 客户端的独立服务器。**V7 已由普通 Compose 配置重建，并独立完成加载、host、Steam登录、单客户端LAN加入和首关启动。03:42本轮服务端与只读客户端样本均为golemplains2、runActive=true，各记录1个玩家受控实体和5个怪物实体，服务端真实认证成功1、失败0。这证明单客户端游戏链路及复制对象观察，尚不证明可视化游玩、伤害、拾取、时钟一致或同步质量。双客户端、WAN 和占用对局长时验收仍未完成。** 以下保留历史失败与当前结果；容器健康和结构测试不构成稳定多人游戏就绪。
 
 | 层级 | 项目 | 实际结果 | 证据与边界 |
 | --- | --- | --- | --- |
@@ -25,7 +25,8 @@
 | 实际部分通过 | V6 服务端开始首关 | 2026-10-18 03:28:54 通过原版 `pregame_start_run` 后，runActive=true、scene=golemplains2、networkUsers=1、Steam认证成功回调累计2、失败0 | `output/router-resume-run-result-1.txt`；该样本仅确认服务端Run及首关场景，后续客户端遥测见下一行，不构成实战或同步通过。切图窗口Unity帧间隔含1562.945ms最大值，不能当作稳态性能 |
 | 实际部分通过 | V6 单客户端首关复制对象 | 03:33:03 客户端 clientActive/clientSceneReady/runActive=true、scene=golemplains2、networkUsers=1；Run计时12.55秒时bodies=9、playerControlled=1、monster=8，167.69秒时bodies=30、playerControlled=1、monster=29 | `output/client-telemetry-run-first-20261018.json`、`output/client-telemetry-run-before-maintenance-20261018.json`；只读探针源码在 `Diagnostics/ClientProbe`，程序集SHA前缀 `594b…`。证明batchmode单客户端收到复制对象，未证明可视化游玩、伤害、拾取、RTT、怪物运动质量或多人稳定 |
 | 实际通过（受控容器停止） | V6停止 | `docker stop` 后 exitCode=0、OOMKilled=false | `output/router-v6-normal-stop-20261018.txt`；supervisor使用 `wineserver -k` 清理本项目Wine进程，因此不能据此宣称Unity原生析构路径通过 |
-| 实际部分通过 | V7 服务端实体遥测候选就绪 | ServerTools DLL SHA前缀 `022d5abc…`，仅新增实体遥测；FPTS仍为V6的 `1d0ac76e…`。镜像 `152791965609714132ea51cae0ec5d1fa70bcf62634975e942d0d586ebaa074c` 由普通Compose重建，restart为on-failure最多3次、默认启动期限600秒。03:40样本loadFinished/serverActive/steamLoggedOn=true、CM connected累计1、healthy，空大厅实体数0 | `output/router-v7-recreate-normal.txt`、`output/router-v7-steam-ready.txt`；空大厅CPU22.35%、内存2.517GiB/6GiB。V7客户端加入及首关仍在独立复测，不沿用V6结果判为通过 |
+| 实际部分通过 | V7 服务端实体遥测候选就绪 | ServerTools DLL SHA前缀 `022d5abc…`，仅新增实体遥测；FPTS仍为V6的 `1d0ac76e…`。镜像 `152791965609714132ea51cae0ec5d1fa70bcf62634975e942d0d586ebaa074c` 由普通Compose重建，restart为on-failure最多3次、默认启动期限600秒。03:40样本loadFinished/serverActive/steamLoggedOn=true、CM connected累计1、healthy，空大厅实体数0 | `output/router-v7-recreate-normal.txt`、`output/router-v7-steam-ready.txt`；空大厅CPU22.35%、内存2.517GiB/6GiB，仅单次资源快照。此轮后续加入和首关结果见下一行 |
+| 实际部分通过 | V7 独立复测单客户端加入及首关复制对象 | 03:42:32服务端与03:42:33客户端均为golemplains2、Run进行中、networkUsers=1；双方各记录bodies=6、playerControlled=1、monster=5，服务端认证成功1/失败0，新增服务端实体遥测已实际执行 | `output/router-v7-run-20261018.txt`、`output/client-v7-run-20261018.json`；服务端Run计时14.483秒、客户端16.9999秒，两个样本非原子且包含采样时差/预测，不能宣称时钟完全一致或同步质量通过。服务端CPU50.33%、内存2.562GiB/6GiB为单首关快照，不是性能基准 |
 | 实际通过（LAN查询） | A2S完整字段与实际AppID | gameId64=632360、解析AppID=632360、appId16=0、EDF=177、gamePort=27015、players=1、map=golemplains2、version=1.5.0、VAC字段1、visibility字段1 | `output/lan-query-detailed-20261018.json`；保留16位wire值0，实际AppID已由可选GameID字段核实。查询字段不证明公网可达或VAC运行效果 |
 | 实际通过 | 卡启动超时退出 | 120秒诊断期限后退出码1，停止本项目游戏进程 | `output/router-bounded-exit-check.txt`、`output/router-phase-boot-final.txt`；默认期限600秒，不是多人通过证据 |
 | 实际观察 | V5 Mod空大厅资源与帧间隔 | 单次CPU22.92%、内存2.533GiB/6GiB，目标60fps，窗口Unity帧间隔P95=17.147ms | `output/router-v5-current.txt`；仅空大厅快照，不是CPU计算耗时、物理tickrate、网络RTT或后期负载基准 |
@@ -46,8 +47,8 @@
 ## 下一验收顺序
 
 1. 处理日志中的 `Network message MsgType.Highest + 22 is unregistered`，核查消息注册时序与实际传输；检查 `TranslucentImageSource.CreateCommandBuffer` 的无图形 UI 空引用。还记录了缺失 `server_pregame.cfg` 和 JobTempAlloc 警告，不能在未分析前宣称无异常稳定运行。
-2. 普通Compose配置下V7已实际ready，继续独立复测加入和首关，不能沿用V6结果；V6的受控停止已通过，但Unity原生析构路径和占用对局长时稳定仍待验证。持续检查CM断连/认证回调、端口和A2S广告，不能只看构造缓存SteamId。约8小时后的大厅复查已有一次CM断连后重新连接，尚无连续采样证明其间玩家连接表现。完整LAN A2S已由可选GameID核实AppID=632360；不再把保留的 `appId16=0` 单独当作广告缺陷。
-3. V6只读客户端遥测已确认首关及复制对象，下一步使用同build、同候选和配置核实图形客户端的移动、伤害和拾取等实际操作，再安排第二个独立Steam账号测试两人开局、换图、掉线重连与结算，对照无Mod基线。
+2. 普通Compose配置下V7已独立通过ready、单客户端加入和首关复制对象观察，下一步验证占用对局长时运行；V6的受控停止已通过，但Unity原生析构路径仍未验证。持续检查CM断连/认证回调、端口和A2S广告，不能只看构造缓存SteamId。约8小时后的大厅复查已有一次CM断连后重新连接，尚无连续采样证明其间玩家连接表现。完整LAN A2S已由可选GameID核实AppID=632360；不再把保留的 `appId16=0` 单独当作广告缺陷。
+3. V6和V7只读客户端遥测均已确认首关及复制对象，下一步使用同build、同候选和配置核实图形客户端的移动、伤害和拾取等实际操作，再安排第二个独立Steam账号测试两人开局、换图、掉线重连与结算，对照无Mod基线。
 4. 完成 WAN 直连与必要时 FRP 的对照测试、后期高负载和长时运行，才能判断是否达到稳定部署目标。
 
 当前只读网络复核还发现容器 TCP443 经 OpenClash fake IP `198.18.0.0/16` 重定向至透明代理，连接为双向 ESTABLISHED/ASSURED；没有证据证明本项目 UDP 被 TPROXY，实际读取的 UDP 入口链没有 mark/tproxy 动作。需要以本项目源地址进行可回滚直连对照，并同步确保 DNS 返回真实地址；不能把 fake IP 直接绕过代理后当作公网目标发送。证据为 `output/router-openclash-readonly.json`。
@@ -58,8 +59,10 @@ V7本次后台日志中，`GetCMListForConnect` 的WebAPI首次请求约60秒后
 
 完整LAN A2S响应的可选GameID为632360。依据 [Valve官方SDK的CGameID布局](https://github.com/ValveSoftware/source-sdk-2013/blob/master/src/public/steam/steamclientpublic.h#L995-L1005)，AppID占GameID低24位，因此该样本的实际AppID为632360。此前 `appId16=0` 是保留的16位原始字段，不能单独用于判定广告AppID错误；本次核实也不等同于Steam浏览器可见或公网可达。
 
-首次Mod加载的旧SeekersPatcher字段和MiscFixes重载错误，已分别用官方1.4.4/1.6.1升级越过。其后的初始化长期等待已由只读协程状态定位为 `LoadGameContent` 状态3：内容协程栈为空，等待真实Wwise bank callbacks。精确SHA白名单适配撤销兼容包的batchmode提前失败hooks后，真实Loaded bank日志出现，初始化、host和Steam登录均前进；没有伪造pendingLoads或成功回调。之后官方FPTS1.0.4的精确符号偏移仍未解决旧StringView ABI导致的native crash；固定上游master源码的V5 DLL已越过并完成大厅启动。V6维护补丁增强native向量恢复和delegate生命周期，已通过首次Wine大厅启动（约125秒）、单客户端LAN Mod大厅加入及首关复制对象观察。V6受控容器停止exitCode=0且未OOM；因清理使用 `wineserver -k`，不能作为Unity原生析构通过证据。V7更换ServerTools加入服务端实体遥测后重新部署，已独立完成加载、host和Steam登录，客户端加入和首关游戏链路仍在复测。
+首次Mod加载的旧SeekersPatcher字段和MiscFixes重载错误，已分别用官方1.4.4/1.6.1升级越过。其后的初始化长期等待已由只读协程状态定位为 `LoadGameContent` 状态3：内容协程栈为空，等待真实Wwise bank callbacks。精确SHA白名单适配撤销兼容包的batchmode提前失败hooks后，真实Loaded bank日志出现，初始化、host和Steam登录均前进；没有伪造pendingLoads或成功回调。之后官方FPTS1.0.4的精确符号偏移仍未解决旧StringView ABI导致的native crash；固定上游master源码的V5 DLL已越过并完成大厅启动。V6维护补丁增强native向量恢复和delegate生命周期，已通过首次Wine大厅启动（约125秒）、单客户端LAN Mod大厅加入及首关复制对象观察。V6受控容器停止exitCode=0且未OOM；因清理使用 `wineserver -k`，不能作为Unity原生析构通过证据。V7更换ServerTools加入服务端实体遥测后重新部署，已独立完成加载、host、Steam登录、客户端加入及首关，两端非原子样本均记录1个玩家受控实体和5个怪物实体；这仍不构成实际操作或同步质量验收。
 
 当前health同时启用MODS和ServerTools时，还要求30秒内的game.json及真实loadFinished/serverActive；只有A2S或boot.json不通过。此前79项Python测试已在真实目标Linux容器通过（`output/router-v6-linux-tests.txt`）；新增测试后，本机Windows运行86项、因平台条件跳过3项，目标Linux已完成86项全部通过（`output/router-v7-linux-tests.txt`）。这些测试不代表Wine/native callbacks或游戏验收。电脑端的ActiveUser=0/SteamAPI_Init失败阻塞已越过：ActiveUser恢复且原生probe成功。首次QA在服务端就绪前连接超时（`output/client-qa-v6-early-timeout.log`），不算成功入服；服务端ready后重试，2026-10-17 19:34 获得networkUsers=1和一次真实Steam玩家认证成功回调的大厅结果。2026-10-18 03:25复查仍处大厅、没有玩家，不能把该时间跨度记为多人对局soak通过；03:28原版开局命令后服务端进入golemplains2，03:33起的客户端只读遥测随后确认同场景、Run计时及玩家/怪物复制对象。该探针不操作游戏状态；无图形客户端日志仍有UI空引用和重复ready警告，图形游玩、实战同步、换图和结算均待验收。
 
 诊断原件位于被 git 忽略的 `output/`。报告不发布游戏程序集、连接文件、凭据或远程地址；源码中保留的是补丁逻辑、审计清单和可复现工具。
+
+源码本地检查点为分支 `codex/steam-25921972-server` 的提交 `b83e99a`，尚未push。该提交使用单次指定的 `Codex <codex@localhost>` 身份，未修改全局Git身份配置；本状态文档后续更新不包含在该源码检查点内。
