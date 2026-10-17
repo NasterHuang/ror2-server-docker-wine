@@ -1,322 +1,176 @@
-using System;
-using System.IO;
-using System.Linq;
+using System.Security.Cryptography;
+using System.Text.Json;
 using Mono.Cecil;
 using Mono.Cecil.Cil;
 
-namespace RoR2DedicatedPatcher
+namespace RoR2DedicatedPatcher;
+
+internal sealed record PatchSite(string Method, int Offset, string Setter);
+internal sealed record StartupSite(string Method, int AfterCallOffset, string SubmitCmd, string CollectHandlers, string? ReceiverGetter = null);
+internal sealed record LobbySite(string Method, int Offset, string OriginalConstructor, string NewConstructor);
+internal sealed record AppIdSite(string Method, int Offset, int From, int To);
+internal sealed record BootstrapSite(string LoaderMethod, string UnloaderMethod, bool UseDummyUserManager = false, bool UseServerNetworking = false, bool DeferUntilHost = false);
+internal sealed record Manifest(string InputSha256, PatchSite[] Patches, StartupSite? Startup = null, LobbySite? Lobby = null, AppIdSite[]? AppIds = null, BootstrapSite? ServerBootstrap = null);
+
+public static class Program
 {
-    class Program
+    private static readonly JsonSerializerOptions Json = new() { WriteIndented = true, PropertyNamingPolicy = JsonNamingPolicy.CamelCase, PropertyNameCaseInsensitive = true, UnmappedMemberHandling = System.Text.Json.Serialization.JsonUnmappedMemberHandling.Disallow };
+    private static readonly string[] RelevantTypes = ["SteamworksServerManager", "RoR2Application", "Console", "SteamworksLobbyManager", "LobbyManager", "LobbyData", "NetworkMessageHandlerAttribute", "ServerAuthManager", "PlatformSystems", "SteamworksClientManager", "NetworkManagerSystemSteam", "SteamUserManager", "SaveSystemSteam", "AchievementSystemSteam", "SteamworksEntitlementResolver"];
+
+    public static int Main(string[] args)
     {
-        static int Main(string[] args)
+        var report = new Dictionary<string, object?> { ["status"] = "failed", ["gameRuntimeVerified"] = false };
+        string? reportPath = null;
+        try
         {
-            string inputDll = "Risk of Rain 2/Risk of Rain 2_Data/Managed/RoR2.dll";
-            string outputDll = "RoR2_Patched.dll";
-            
-            for (int i = 0; i < args.Length; i++)
+            var options = Parse(args);
+            if (options.ContainsKey("help"))
             {
-                switch (args[i])
+                Console.WriteLine("RoR2Patcher --inspect --input RoR2.dll [--report audit.json]\nRoR2Patcher --input RoR2.dll --output RoR2.patched.dll --manifest approved.json [--report result.json]\nOnly an explicitly approved, SHA256-pinned DedicatedServer false-to-true change is supported. No game-version compatibility is implied.");
+                return 0;
+            }
+            reportPath = options.GetValueOrDefault("report");
+            string input = Path.GetFullPath(Required(options, "input"));
+            byte[] source = File.ReadAllBytes(input);
+            string sourceHash = Hash(source);
+            report["input"] = input;
+            report["sourceSha256"] = sourceHash;
+            using var resolver = new DefaultAssemblyResolver();
+            resolver.AddSearchDirectory(Path.GetDirectoryName(input)!);
+            using var assembly = AssemblyDefinition.ReadAssembly(new MemoryStream(source), new ReaderParameters { AssemblyResolver = resolver, InMemory = true });
+            if (assembly.Name.Name != "RoR2") throw new InvalidOperationException("Expected an assembly named RoR2.");
+            if (assembly.Name.HasPublicKey) throw new InvalidOperationException("Strong-named inputs require a separately reviewed signing strategy.");
+            report["assembly"] = assembly.Name.FullName;
+            report["moduleMvid"] = assembly.MainModule.Mvid;
+            report["audit"] = Audit(assembly);
+            report["steamClientDependencies"] = Types(assembly.MainModule.Types).SelectMany(t => t.Methods).Where(m => m.HasBody)
+                .SelectMany(m => m.Body.Instructions.Where(i => i.Operand is MethodReference reference && reference.DeclaringType.FullName == "Facepunch.Steamworks.Client" && reference.Name == "get_Instance")
+                    .Select(i => new { method = m.FullName, offset = i.Offset })).ToArray();
+            if (reportPath != null && string.Equals(Path.GetFullPath(reportPath), input, StringComparison.OrdinalIgnoreCase))
+                throw new ArgumentException("Report must not overwrite the input assembly.");
+            if (options.ContainsKey("inspect"))
+            {
+                if (options.ContainsKey("output") || options.ContainsKey("manifest")) throw new ArgumentException("--inspect cannot be combined with --output or --manifest.");
+                report["status"] = "inspected";
+                report["patches"] = Array.Empty<object>();
+                WriteReport(reportPath, report);
+                return 0;
+            }
+            string output = Path.GetFullPath(Required(options, "output"));
+            if (string.Equals(input, output, OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal))
+                throw new ArgumentException("Input and output must differ; preserve the original game assembly.");
+            if (reportPath != null && new[] { input, output }.Any(p => string.Equals(Path.GetFullPath(reportPath), p, StringComparison.OrdinalIgnoreCase)))
+                throw new ArgumentException("Report must not overwrite an input or output assembly.");
+            var manifest = JsonSerializer.Deserialize<Manifest>(File.ReadAllText(Required(options, "manifest")), Json) ?? throw new ArgumentException("Empty manifest.");
+            if (!string.Equals(manifest.InputSha256, sourceHash, StringComparison.OrdinalIgnoreCase)) throw new InvalidOperationException("Input SHA256 differs from the reviewed manifest. Inspect and review this exact game build first.");
+            if (manifest.Patches is not { Length: 1 }) throw new ArgumentException("Exactly one reviewed DedicatedServer patch site is required.");
+            var site = manifest.Patches[0];
+            var matches = Types(assembly.MainModule.Types).SelectMany(t => t.Methods).Where(m => m.FullName == site.Method).ToArray();
+            if (matches.Length != 1 || !matches[0].HasBody) throw new InvalidOperationException("Reviewed method is missing or ambiguous.");
+            var method = matches[0];
+            if (method.DeclaringType.FullName != "RoR2.SteamworksServerManager") throw new InvalidOperationException("Only RoR2.SteamworksServerManager can be patched.");
+            var instructions = method.Body.Instructions;
+            var targets = instructions.Where(i => i.Offset == site.Offset).ToArray();
+            if (targets.Length != 1) throw new InvalidOperationException("Reviewed instruction offset is missing or ambiguous.");
+            var value = targets[0];
+            var call = value.Next;
+            if (value.OpCode != OpCodes.Ldc_I4_0 || call == null || (call.OpCode != OpCodes.Callvirt && call.OpCode != OpCodes.Call) ||
+                call.Operand is not MethodReference setter || setter.FullName != site.Setter || !setter.HasThis || setter.Name != "set_DedicatedServer" ||
+                setter.ReturnType.MetadataType != MetadataType.Void || setter.Parameters.Count != 1 || setter.Parameters[0].ParameterType.MetadataType != MetadataType.Boolean)
+                throw new InvalidOperationException("Reviewed site is not an instance void set_DedicatedServer(bool) preceded by ldc.i4.0.");
+            // All optional transforms are planned first; one failed precondition cancels the whole write.
+            var optionalChanges = Experimental.Plan(assembly, manifest);
+            var changedMethodNames = manifest.Patches.Select(p => p.Method)
+                .Concat(manifest.Startup == null ? [] : new[] { manifest.Startup.Method })
+                .Concat(manifest.Lobby == null ? [] : new[] { manifest.Lobby.Method })
+                .Concat((manifest.AppIds ?? []).Select(p => p.Method))
+                .Concat(manifest.ServerBootstrap == null ? [] : manifest.ServerBootstrap.DeferUntilHost ? new[] { manifest.ServerBootstrap.UnloaderMethod }.Concat(DeferredServer.MethodNames) : new[] { manifest.ServerBootstrap.LoaderMethod, manifest.ServerBootstrap.UnloaderMethod })
+                .Concat(manifest.ServerBootstrap?.UseDummyUserManager == true ? new[] { "System.Void RoR2.PlatformSystems::Init()" } : [])
+                .Concat(manifest.ServerBootstrap?.UseServerNetworking == true ? ServerNetworking.MethodNames : [])
+                .Distinct(StringComparer.Ordinal).ToArray();
+            // Modify the existing object in place. Branch and exception-handler targets remain valid;
+            // both opcodes have identical stack effects and encoded size.
+            value.OpCode = OpCodes.Ldc_I4_1;
+            foreach (var change in optionalChanges) change();
+            foreach (var changedMethodName in changedMethodNames)
+                ILSafety.NormalizeAndVerify(Types(assembly.MainModule.Types).SelectMany(t => t.Methods).Single(m => m.FullName == changedMethodName));
+            using var buffer = new MemoryStream();
+            assembly.Write(buffer);
+            byte[] patched = buffer.ToArray();
+            // Re-read before writing so serialization errors never damage an existing output.
+            using (var verification = AssemblyDefinition.ReadAssembly(new MemoryStream(patched)))
+            {
+                var verifiedMethod = Types(verification.MainModule.Types).SelectMany(t => t.Methods).Single(m => m.FullName == site.Method);
+                if (verifiedMethod.Body.Instructions.Single(i => i.Offset == value.Offset).OpCode != OpCodes.Ldc_I4_1)
+                    throw new InvalidOperationException("Serialized patch verification failed.");
+                foreach (var changedMethodName in changedMethodNames)
                 {
-                    case "--input":
-                    case "-i":
-                        if (i + 1 < args.Length)
-                            inputDll = args[++i];
-                        break;
-                    case "--output":
-                    case "-o":
-                        if (i + 1 < args.Length)
-                            outputDll = args[++i];
-                        break;
+                    var expected = Types(assembly.MainModule.Types).SelectMany(t => t.Methods).Single(m => m.FullName == changedMethodName);
+                    var actual = Types(verification.MainModule.Types).SelectMany(t => t.Methods).Single(m => m.FullName == changedMethodName);
+                    if (!expected.Body.Instructions.Select(i => i.ToString()).SequenceEqual(actual.Body.Instructions.Select(i => i.ToString())))
+                        throw new InvalidOperationException($"Serialized transform differs: {changedMethodName}");
                 }
             }
-            
-            if (!File.Exists(inputDll))
-            {
-                Console.WriteLine($"ERROR Input file not found: {inputDll}");
-                return 1;
-            }
-            
-            try
-            {
-                Console.WriteLine($"Loading assembly: {inputDll}");
-                
-                var resolver = new DefaultAssemblyResolver();
-                var inputDir = Path.GetDirectoryName(Path.GetFullPath(inputDll));
-                if (inputDir != null)
-                {
-                    resolver.AddSearchDirectory(inputDir);
-                }
-                
-                var readerParams = new ReaderParameters
-                {
-                    AssemblyResolver = resolver,
-                    ReadWrite = false
-                };
-                
-                var assembly = AssemblyDefinition.ReadAssembly(inputDll, readerParams);
-                Console.WriteLine($"Loaded assembly: {assembly.Name.Name}");
-                
-                // Apply patches
-                PatchDedicatedServer(assembly);
-                PatchAppId(assembly);
-                PatchLoadStartupConfigs(assembly);
-                PatchSteamworksLobbyManager(assembly);
-                PatchSkipSteamClientInit(assembly);
-                PatchBuildId(assembly);
-                PatchVersionCheck(assembly);
-                
-                Console.WriteLine($"Saving to: {outputDll}");
-                assembly.Write(outputDll);
-                Console.WriteLine($"Patching complete. Output: {outputDll}");
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"ERROR Failed to patch: {ex.Message}");
-                Console.WriteLine($"Stack trace: {ex.StackTrace}");
-                return 1;
-            }
-            
+            Directory.CreateDirectory(Path.GetDirectoryName(output)!);
+            bool unchanged = File.Exists(output) && File.ReadAllBytes(output).AsSpan().SequenceEqual(patched);
+            if (!unchanged) AtomicWrite(output, patched);
+            report["output"] = output;
+            report["outputSha256"] = Hash(patched);
+            report["patches"] = manifest.Patches;
+            report["experimental"] = new { manifest.Startup, manifest.Lobby, manifest.AppIds, manifest.ServerBootstrap };
+            report["changedMethods"] = changedMethodNames;
+            report["status"] = unchanged ? "unchanged" : "patched";
+            WriteReport(reportPath, report);
             return 0;
         }
-        
-        static void PatchDedicatedServer(AssemblyDefinition assembly)
+        catch (Exception error)
         {
-            Console.WriteLine("Patching DedicatedServer flag");
-            
-            var serverManager = assembly.MainModule.Types.FirstOrDefault(t => t.Name == "SteamworksServerManager") ??
-                                assembly.MainModule.Types.SelectMany(t => t.NestedTypes).FirstOrDefault(t => t.Name == "SteamworksServerManager");
-            
-            int patchCount = 0;
-            foreach (var method in serverManager.Methods.Where(m => m.HasBody))
-            {
-                var instructions = method.Body.Instructions;
-                for (int i = 0; i < instructions.Count - 1; i++)
-                {
-                    if (instructions[i].OpCode == OpCodes.Ldc_I4_0 &&
-                        instructions[i + 1].OpCode == OpCodes.Callvirt &&
-                        instructions[i + 1].Operand?.ToString().Contains("set_DedicatedServer") == true)
-                    {
-                        var processor = method.Body.GetILProcessor();
-                        processor.Replace(instructions[i], processor.Create(OpCodes.Ldc_I4_1));
-                        patchCount++;
-                    }
-                }
-            }
-            
-            Console.WriteLine($"Patched {patchCount} DedicatedServer reference(s)");
+            report.Remove("audit");
+            report.Remove("steamClientDependencies");
+            report["error"] = error.Message;
+            // Never write a failure report to a user-controlled path before safe-path validation.
+            Console.Error.WriteLine(JsonSerializer.Serialize(report, Json));
+            return 1;
         }
-        
-        static void PatchAppId(AssemblyDefinition assembly)
+    }
+
+    private static object[] Audit(AssemblyDefinition assembly) => Types(assembly.MainModule.Types)
+        .Where(t => RelevantTypes.Contains(t.Name) || t.FullName.StartsWith("RoR2.SteamworksClientManager/", StringComparison.Ordinal) || t.FullName.Contains("InitializeGameRoutine", StringComparison.Ordinal))
+        .Select(t => (object)new { type = t.FullName, methods = t.Methods.Where(m => m.HasBody).Select(m => new {
+            method = m.FullName,
+            instructions = m.Body.Instructions.Select(i => new { offset = i.Offset, opcode = i.OpCode.Name, operand = i.Operand?.ToString() }).ToArray()
+        }).ToArray() }).ToArray();
+
+    private static IEnumerable<TypeDefinition> Types(IEnumerable<TypeDefinition> roots)
+    {
+        foreach (var type in roots) { yield return type; foreach (var child in Types(type.NestedTypes)) yield return child; }
+    }
+    private static string Hash(byte[] bytes) => Convert.ToHexString(SHA256.HashData(bytes)).ToLowerInvariant();
+    private static string Required(Dictionary<string, string> options, string name) => options.GetValueOrDefault(name) ?? throw new ArgumentException($"Missing --{name}.");
+    private static Dictionary<string, string> Parse(string[] args)
+    {
+        var result = new Dictionary<string, string>(StringComparer.Ordinal);
+        for (int i = 0; i < args.Length; i++)
         {
-            Console.WriteLine("Patching AppID references...");
-            
-            const uint CLIENT_APP_ID = 632360;
-            const uint SERVER_APP_ID = 1180760;
-            int patchCount = 0;
-            
-            // Patch RoR2Application.appId field
-            var appIdField = assembly.MainModule.Types.FirstOrDefault(t => t.Name == "RoR2Application")
-                            ?.Fields.FirstOrDefault(f => f.Name == "appId");
-            if (appIdField?.HasConstant == true && appIdField.Constant.Equals(CLIENT_APP_ID))
-            {
-                appIdField.Constant = SERVER_APP_ID;
-                patchCount++;
-            }
-            
-            // Patch AppID references in methods (skip SteamworksServerManager constructor)
-            foreach (var type in assembly.MainModule.Types)
-            {
-                foreach (var method in type.Methods.Where(m => m.HasBody))
-                {
-                    if (type.Name == "SteamworksServerManager" && method.IsConstructor) continue;
-                    
-                    foreach (var inst in method.Body.Instructions)
-                    {
-                        if (inst.OpCode == OpCodes.Ldc_I4 && inst.Operand.Equals((int)CLIENT_APP_ID))
-                        {
-                            inst.Operand = (int)SERVER_APP_ID;
-                            patchCount++;
-                        }
-                    }
-                }
-            }
-            
-            Console.WriteLine($"Patched {patchCount} AppID reference(s)");
+            string key = args[i] switch { "-i" => "input", "-o" => "output", "-h" => "help", _ when args[i].StartsWith("--", StringComparison.Ordinal) => args[i][2..], _ => throw new ArgumentException($"Unknown argument {args[i]}.") };
+            if (key is not ("input" or "output" or "manifest" or "report" or "inspect" or "help")) throw new ArgumentException($"Unknown option --{key}.");
+            if (result.ContainsKey(key)) throw new ArgumentException($"Duplicate --{key}.");
+            if (key is "inspect" or "help") result[key] = "true";
+            else if (++i >= args.Length || args[i].StartsWith("--", StringComparison.Ordinal)) throw new ArgumentException($"Missing value for --{key}.");
+            else result[key] = args[i];
         }
-        
-        static void PatchLoadStartupConfigs(AssemblyDefinition assembly)
-        {
-            Console.WriteLine("Patching RunConfigsAfterLoad for server auto-start...");
-            
-            var consoleType = assembly.MainModule.Types.FirstOrDefault(t => t.Name == "Console");
-            var runConfigsMethod = consoleType?.Methods.FirstOrDefault(m => m.Name == "RunConfigsAfterLoad");
-            var submitCmdMethod = consoleType?.Methods.FirstOrDefault(m => m.Name == "SubmitCmd");
-            var handlerAttrType = assembly.MainModule.Types.FirstOrDefault(t => t.Name == "NetworkMessageHandlerAttribute");
-            var collectHandlersMethod = handlerAttrType?.Methods.FirstOrDefault(m => m.Name == "CollectHandlers");
-            
-            var instructions = runConfigsMethod.Body.Instructions;
-            var processor = runConfigsMethod.Body.GetILProcessor();
-            
-            int insertPoint = -1;
-            for (int i = 0; i < instructions.Count; i++)
-            {
-                if (instructions[i].Operand?.ToString().Contains("exec autoexec") == true)
-                {
-                    for (int j = i; j < instructions.Count; j++)
-                    {
-                        if (instructions[j].Operand?.ToString().Contains("SubmitCmd") == true)
-                        {
-                            insertPoint = j + 1;
-                            break;
-                        }
-                    }
-                    break;
-                }
-            }
-            
-            // Insert CollectHandlers call
-            var callCollectHandlers = new[]
-            {
-                processor.Create(OpCodes.Call, collectHandlersMethod)
-            };
-            
-            foreach (var inst in callCollectHandlers.Reverse())
-            {
-                processor.InsertBefore(instructions[insertPoint], inst);
-            }
-            
-            // Insert exec server_startup
-            var execServerStartup = new[]
-            {
-                processor.Create(OpCodes.Ldarg_0),
-                processor.Create(OpCodes.Ldnull),
-                processor.Create(OpCodes.Ldstr, "exec server_startup"),
-                processor.Create(OpCodes.Ldc_I4_0),
-                processor.Create(OpCodes.Call, submitCmdMethod)
-            };
-            
-            foreach (var inst in execServerStartup.Reverse())
-            {
-                processor.InsertBefore(instructions[insertPoint], inst);
-            }
-            
-            Console.WriteLine("Patched RunConfigsAfterLoad");
-        }
-        
-        static void PatchSteamworksLobbyManager(AssemblyDefinition assembly)
-        {
-            Console.WriteLine("Patching SteamworksLobbyManager.Init() for lobby behavior...");
-            
-            var steamworksLobbyManagerType = assembly.MainModule.Types.FirstOrDefault(t => t.Name == "SteamworksLobbyManager");
-            var initMethod = steamworksLobbyManagerType?.Methods.FirstOrDefault(m => m.Name == "Init");
-            var lobbyManagerType = assembly.MainModule.Types.FirstOrDefault(t => t.Name == "LobbyManager");
-            var lobbyDataType = lobbyManagerType?.NestedTypes.FirstOrDefault(t => t.Name == "LobbyData");
-            var parameterlessConstructor = lobbyDataType?.Methods.FirstOrDefault(m => 
-                m.IsConstructor && m.Parameters.Count == 0);
-            
-            var instructions = initMethod.Body.Instructions;
-            
-            for (int i = 0; i < instructions.Count - 3; i++)
-            {
-                var stlocInst = instructions[i];
-                var ldargInst = instructions[i + 1];
-                var ldlocInst = instructions[i + 2];
-                var newobjInst = instructions[i + 3];
-                
-                if (stlocInst.OpCode == OpCodes.Stloc_0 &&
-                    ldargInst.OpCode == OpCodes.Ldarg_0 &&
-                    ldlocInst.OpCode == OpCodes.Ldloc_0 && 
-                    newobjInst.OpCode == OpCodes.Newobj && 
-                    newobjInst.Operand?.ToString().Contains("LobbyData") == true &&
-                    newobjInst.Operand.ToString().Contains("LobbyDataSetupState"))
-                {
-                    var processor = initMethod.Body.GetILProcessor();
-                    var importedConstructor = assembly.MainModule.ImportReference(parameterlessConstructor);
-                    
-                    processor.Remove(stlocInst);
-                    processor.Remove(ldlocInst);
-                    newobjInst.Operand = importedConstructor;
-                    
-                    Console.WriteLine("Patched SteamworksLobbyManager.Init()");
-                    break;
-                }
-            }
-        }
-        
-        static void PatchSkipSteamClientInit(AssemblyDefinition assembly)
-        {
-            Console.WriteLine("Patching RoR2Application to skip Steam client initialization...");
-            
-            var roR2AppType = assembly.MainModule.Types.FirstOrDefault(t => t.Name == "RoR2Application");
-            
-            // The coroutine iterator for InitializeGameRoutine
-            var iteratorClass = roR2AppType.NestedTypes.FirstOrDefault(t => 
-                t.Name.Contains("InitializeGameRoutine") && t.Name.Contains("d__"));
-            
-            var moveNextMethod = iteratorClass.Methods.FirstOrDefault(m => m.Name == "MoveNext");
-            var instructions = moveNextMethod.Body.Instructions;
-            var processor = moveNextMethod.Body.GetILProcessor();
-            
-            int patchCount = 0;
-            
-            // Find the steamworksFailed assignment and skip the client initialization
-            for (int i = 0; i < instructions.Count - 2; i++)
-            {
-                // Look for: roR2Application.steamworksFailed = true;
-                if (instructions[i].OpCode == OpCodes.Ldc_I4_1 &&
-                    instructions[i + 1].OpCode == OpCodes.Stfld &&
-                    instructions[i + 1].Operand?.ToString().Contains("steamworksFailed") == true)
-                {
-                    // Replace the assignment with false
-                    processor.Replace(instructions[i], processor.Create(OpCodes.Ldc_I4_0));
-                    patchCount++;
-                }
-            }
-            
-            Console.WriteLine($"Patched {patchCount} steamworksFailed assignment(s)");
-        }
-        
-        static void PatchBuildId(AssemblyDefinition assembly)
-        {
-            Console.WriteLine("Patching AssignBuildId to use dedicated server version...");
-            
-            var roR2AppType = assembly.MainModule.Types.FirstOrDefault(t => t.Name == "RoR2Application");
-            var assignBuildIdMethod = roR2AppType.Methods.FirstOrDefault(m => m.Name == "AssignBuildId");
-            
-            // Clear the method and replace with: buildId = "1.2.4.1";
-            var processor = assignBuildIdMethod.Body.GetILProcessor();
-            assignBuildIdMethod.Body.Instructions.Clear();
-            
-            var buildIdField = roR2AppType.Fields.FirstOrDefault(f => f.Name == "buildId");
-            
-            assignBuildIdMethod.Body.Instructions.Add(processor.Create(OpCodes.Ldstr, "1.2.4.1"));
-            assignBuildIdMethod.Body.Instructions.Add(processor.Create(OpCodes.Stsfld, buildIdField));
-            assignBuildIdMethod.Body.Instructions.Add(processor.Create(OpCodes.Ret));
-            
-            Console.WriteLine("Patched AssignBuildId to set buildId to 1.2.4.1");
-        }
-        
-        static void PatchVersionCheck(AssemblyDefinition assembly)
-        {
-            Console.WriteLine("Patching version check to accept client version 1.3.9...");
-            
-            var serverAuthManager = assembly.MainModule.Types.FirstOrDefault(t => t.FullName == "RoR2.Networking.ServerAuthManager");
-            var handleSetClientAuth = serverAuthManager.Methods.FirstOrDefault(m => m.Name == "HandleSetClientAuth");
-            
-            var instructions = handleSetClientAuth.Body.Instructions;
-            var processor = handleSetClientAuth.Body.GetILProcessor();
-            
-            for (int i = 0; i < instructions.Count; i++)
-            {
-                if (instructions[i].OpCode == OpCodes.Call && 
-                    instructions[i].Operand?.ToString().Contains("GetBuildId") == true)
-                {
-                    // Replace call to GetBuildId with ldstr "1.3.9"
-                    processor.Replace(instructions[i], processor.Create(OpCodes.Ldstr, "1.3.9"));
-                    Console.WriteLine("Patched version check to use 1.3.9");
-                    break;
-                }
-            }
-        }
+        return result;
+    }
+    private static void WriteReport(string? path, Dictionary<string, object?> report)
+    {
+        byte[] bytes = JsonSerializer.SerializeToUtf8Bytes(report, Json);
+        if (path == null) Console.WriteLine(System.Text.Encoding.UTF8.GetString(bytes));
+        else { string full = Path.GetFullPath(path); Directory.CreateDirectory(Path.GetDirectoryName(full)!); AtomicWrite(full, bytes); }
+    }
+    private static void AtomicWrite(string path, byte[] bytes)
+    {
+        string temporary = path + "." + Guid.NewGuid().ToString("N") + ".tmp";
+        try { File.WriteAllBytes(temporary, bytes); File.Move(temporary, path, true); }
+        finally { if (File.Exists(temporary)) File.Delete(temporary); }
     }
 }

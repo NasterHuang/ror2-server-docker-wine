@@ -1,0 +1,109 @@
+{
+  "schema": 1,
+  "upstreamCommit": "7b7b2a596c18f1f9bb4ae9ddedfe1eea18cecb7c",
+  "dependencyLockSha256": "9bcfe41e063c0e1f0deac63b298b1c7def767b9264c4ca157cdf85a01ac5b037",
+  "patches": [
+    {
+      "path": "src/FixPluginTypesSerialization/Patchers/AwakeFromLoad.cs",
+      "beforeSha256": "86ba8e77bbabb80f04ec914e895dffe35bf0d66e15b686104d3462e0d5a20c9c",
+      "afterSha256": "3ed8775ccd8f6eb6c9851dd574c32e164f1b6c857a5493db1314de9f35ffdf69",
+      "edits": [
+        {
+          "old": "        private static NativeDetour ",
+          "new": "        // Keep the reverse-P/Invoke callback alive for the entire detour lifetime.\n        private static readonly AwakeFromLoadDelegate HookCallback = OnAwakeFromLoad;\n\n        private static NativeDetour "
+        },
+        {
+          "old": "Marshal.GetFunctionPointerForDelegate(new AwakeFromLoadDelegate(OnAwakeFromLoad))",
+          "new": "Marshal.GetFunctionPointerForDelegate(HookCallback)"
+        }
+      ],
+      "reason": "Static callback root; native IntPtr alone does not retain delegate lifetime."
+    },
+    {
+      "path": "src/FixPluginTypesSerialization/Patchers/IsAssemblyCreated.cs",
+      "beforeSha256": "4fd5461c0513ce1fff0d04e061cdd0b8baa131b0b22509e004ffcb570d085f24",
+      "afterSha256": "8c187c0bb511179ae6523c2e4a424c89c0f48b321d54fe05689d227002863ecc",
+      "edits": [
+        {
+          "old": "        private static NativeDetour ",
+          "new": "        // Keep the reverse-P/Invoke callback alive for the entire detour lifetime.\n        private static readonly IsAssemblyCreatedDelegate HookCallback = OnIsAssemblyCreated;\n\n        private static NativeDetour "
+        },
+        {
+          "old": "Marshal.GetFunctionPointerForDelegate(new IsAssemblyCreatedDelegate(OnIsAssemblyCreated))",
+          "new": "Marshal.GetFunctionPointerForDelegate(HookCallback)"
+        }
+      ],
+      "reason": "Static callback root; native IntPtr alone does not retain delegate lifetime."
+    },
+    {
+      "path": "src/FixPluginTypesSerialization/Patchers/IsFileCreated.cs",
+      "beforeSha256": "5b1ff5a45c8756af32025c10c1bd8564b66720c2052e251fa30cff14dd86aab9",
+      "afterSha256": "aa8343bb17ae37e2b8ece0118fb8c51f73c308ed1be744f5d3b1a39f88f457c0",
+      "edits": [
+        {
+          "old": "        private static NativeDetour ",
+          "new": "        // Keep the reverse-P/Invoke callback alive for the entire detour lifetime.\n        private static readonly IsFileCreatedDelegate HookCallback = OnIsFileCreated;\n\n        private static NativeDetour "
+        },
+        {
+          "old": "Marshal.GetFunctionPointerForDelegate(new IsFileCreatedDelegate(OnIsFileCreated))",
+          "new": "Marshal.GetFunctionPointerForDelegate(HookCallback)"
+        }
+      ],
+      "reason": "Static callback root; native IntPtr alone does not retain delegate lifetime."
+    },
+    {
+      "path": "src/FixPluginTypesSerialization/Patchers/ConvertSeparatorsToPlatform.cs",
+      "beforeSha256": "1f178b4d7b963e5998e608371400927812de7fff67963b2bd62eebe766512568",
+      "afterSha256": "f0450c1be40d065c87a5bc1a04315bebc544299cfa764bff484dc2d4e2256fc7",
+      "edits": [
+        {
+          "old": "        private static NativeDetour ",
+          "new": "        // Keep the reverse-P/Invoke callback alive for the entire detour lifetime.\n        private static readonly ConvertSeparatorsToPlatformDelegate HookCallback = OnConvertSeparatorsToPlatformV1;\n\n        private static NativeDetour "
+        },
+        {
+          "old": "Marshal.GetFunctionPointerForDelegate(new ConvertSeparatorsToPlatformDelegate(OnConvertSeparatorsToPlatformV1))",
+          "new": "Marshal.GetFunctionPointerForDelegate(HookCallback)"
+        }
+      ],
+      "reason": "Static callback root; native IntPtr alone does not retain delegate lifetime."
+    },
+    {
+      "path": "src/FixPluginTypesSerialization/Patchers/ScriptingManagerDeconstructor.cs",
+      "beforeSha256": "431186e88fe7995942079cc6236c25bee9dfc2b040fa22d58a53355edf233575",
+      "afterSha256": "19f327c304a94c0175b345b88b8b06c76027027ce0939dee9108feeb0e81fca6",
+      "edits": [
+        {
+          "old": "        private static NativeDetour ",
+          "new": "        // Keep the reverse-P/Invoke callback alive for the entire detour lifetime.\n        private static readonly ScriptingManagerDeconstructorDelegate HookCallback = OnDeconstructor;\n\n        private static NativeDetour "
+        },
+        {
+          "old": "Marshal.GetFunctionPointerForDelegate(new ScriptingManagerDeconstructorDelegate(OnDeconstructor))",
+          "new": "Marshal.GetFunctionPointerForDelegate(HookCallback)"
+        }
+      ],
+      "reason": "Static callback root; native IntPtr alone does not retain delegate lifetime."
+    },
+    {
+      "path": "src/FixPluginTypesSerialization/UnityPlayer/Structs/v2021/v1/MonoManager.cs",
+      "beforeSha256": "fdb2750c9fe82d313aac1caa8d2cffa756c3126dd2793b86fe1152f934513eca",
+      "afterSha256": "5747a6b5ba2a29dfdf36825db2a5cb4508f505e40c802d42ae4b2a087deb7789",
+      "edits": [
+        {
+          "old": "        private ScriptingAssemblies _originalScriptingAssemblies;",
+          "new": "        private ScriptingAssemblies _originalScriptingAssemblies;\n        private bool _hasOriginalAssemblyNames;"
+        },
+        {
+          "old": "            MonoManagerCommon.CopyNativeAssemblyListToManagedV3(ManagedAssemblyList, _this->value->names);",
+          "new": "            if (_hasOriginalAssemblyNames)\n            {\n                throw new InvalidOperationException(\"Assembly names already overridden; restore before reinjecting.\");\n            }\n            _originalScriptingAssemblies = *_this->value;\n            _hasOriginalAssemblyNames = true;\n            MonoManagerCommon.CopyNativeAssemblyListToManagedV3(ManagedAssemblyList, _this->value->names);"
+        },
+        {
+          "old": "            *_this->value = _originalScriptingAssemblies;",
+          "new": "            if (!_hasOriginalAssemblyNames)\n            {\n                return;\n            }\n            // Unity may update the types vector during original AwakeFromLoad.\n            // Restore only the names vector whose pointer this patcher replaced.\n            _this->value->names = _originalScriptingAssemblies.names;\n            _hasOriginalAssemblyNames = false;\n            ManagedAssemblyList.Clear();"
+        }
+      ],
+      "reason": "Capture original native names vector before replacement; restore names only, preserve Unity-updated types, idempotent restore and reject repeated injection."
+    }
+  ],
+  "allocatorChanges": false,
+  "reason": "No runtime pointer-ownership evidence yet; do not assume Convert receives the original injected string rather than a native copy."
+}

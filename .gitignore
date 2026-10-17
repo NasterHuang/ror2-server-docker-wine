@@ -8,3 +8,10 @@ output/
 Dockerfile.dev
 entrypoint-dev.sh
 docker-compose.dev.yml
+game/
+data/
+mods/
+config/
+.env
+__pycache__/
+*.pyc

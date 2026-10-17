@@ -1,0 +1,31 @@
+{
+  "inputSha256": "48f2758cccbe1a5efba88cffe0a68631953f489a71a92726572c15a4c57ff90c",
+  "patches": [
+    {
+      "method": "System.Void RoR2.SteamworksServerManager::.ctor()",
+      "offset": 362,
+      "setter": "System.Void Facepunch.Steamworks.Server::set_DedicatedServer(System.Boolean)"
+    }
+  ],
+  "startup": {
+    "method": "System.Void RoR2.Console::RunConfigsAfterLoad()",
+    "afterCallOffset": 12,
+    "submitCmd": "System.Void RoR2.Console::SubmitCmd(RoR2.NetworkUser,System.String,System.Boolean)",
+    "collectHandlers": "System.Void RoR2.Networking.NetworkMessageHandlerAttribute::CollectHandlers()",
+    "receiverGetter": "RoR2.Console RoR2.Console::get_instance()"
+  },
+  "lobby": {
+    "method": "System.Void RoR2.SteamworksLobbyManager::Init()",
+    "offset": 290,
+    "originalConstructor": "System.Void RoR2.LobbyManager/LobbyData::.ctor(RoR2.LobbyManager/LobbyDataSetupState)",
+    "newConstructor": "System.Void RoR2.LobbyManager/LobbyData::.ctor()"
+  },
+  "appIds": [],
+  "serverBootstrap": {
+    "unloaderMethod": "System.Void RoR2.SteamworksClientManager/<>c::<Init>b__12_1()",
+    "loaderMethod": "System.Boolean RoR2.SteamworksClientManager/<>c::<Init>b__12_0()",
+    "useDummyUserManager": true,
+    "useServerNetworking": true,
+    "deferUntilHost": true
+  }
+}

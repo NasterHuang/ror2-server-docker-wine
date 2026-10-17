@@ -1,0 +1,10 @@
+*
+!Dockerfile
+!entrypoint.sh
+!tools/
+!tools/**
+!RoR2Patcher/
+!RoR2Patcher/**
+RoR2Patcher/bin/
+RoR2Patcher/obj/
+**/__pycache__/

@@ -1,0 +1,8 @@
+# Space-constrained router: prepare on the PC, then transfer data/runtime once.
+# docker compose -f docker-compose.yml -f compose.router.yml up -d
+services:
+  ror2-server:
+    command: [launch]
+    environment:
+      # Avoid a default open server; set explicitly in the local .env.
+      SERVER_PASSWORD: ${SERVER_PASSWORD:?Set SERVER_PASSWORD in .env}
