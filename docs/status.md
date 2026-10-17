@@ -4,6 +4,7 @@
 
 | 层级 | 项目 | 实际结果 | 证据与边界 |
 | --- | --- | --- | --- |
+| 实际部分通过 | 本项目开机启动助手 | 已安装、启用并检查所有权、幂等启动、status；未实机重启 | `output/router-v7-boot-service-final.txt`、`output/router-boot-status-final.txt`；procd助手不重启其他容器，Docker有限重试仍为3次 |
 | 来源已核实 | Steam build `25921972` | 用户更新后已核实、导出纯净来源 | 原始 `RoR2.dll` SHA-256：`48f2758cccbe1a5efba88cffe0a68631953f489a71a92726572c15a4c57ff90c`；原玩家目录未改写 |
 | 静态验证 | 精确 SHA / 签名 / IL 位置与补丁回读 | 已实现且通过相应测试 | 只证明受审计的变换可生成和回读；不证明 Unity Mono 接受或游戏服务端可用 |
 | 镜像已验证 | 软路由 Docker 基础镜像及项目运行镜像 | 已在真实软路由构建 | `output/router-base-build-result.json`、`output/router-final-build.log`；非其他主机替代验证 |
@@ -65,4 +66,6 @@ V7本次后台日志中，`GetCMListForConnect` 的WebAPI首次请求约60秒后
 
 诊断原件位于被 git 忽略的 `output/`。报告不发布游戏程序集、连接文件、凭据或远程地址；源码中保留的是补丁逻辑、审计清单和可复现工具。
 
-源码本地检查点为分支 `codex/steam-25921972-server` 的提交 `b83e99a`，尚未push。该提交使用单次指定的 `Codex <codex@localhost>` 身份，未修改全局Git身份配置；本状态文档后续更新不包含在该源码检查点内。
+2026-10-18 03:43自动测试客户端已停止；服务端新鲜样本为Steam在线、healthy、networkUsers=0、runActive=false、scene=lobby，保留空大厅供双人测试。之后增加的开机助手4项回归检查已在目标Linux实际执行，最新完整90项全部通过（`output/router-20261018-final-90-tests.txt`）；早先86项结果保留为历史。宿主整机重启、掉电恢复与实际双人公网游戏仍待验收。
+
+源码实现检查点为分支 `codex/steam-25921972-server` 的提交 `b83e99a`，后续文档与开机助手另有本地提交，尚未push。提交使用单次指定的 `Codex <codex@localhost>` 身份，未修改全局Git身份配置。

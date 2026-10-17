@@ -94,6 +94,12 @@ connect "YOUR_SERVER_IP:27015";
 
 已有公网 IPv4 时优先直连。确需 FRP 时使用游戏层 UDP proxy，确认传输层延迟、丢包和额外转发成本。具体见 `network-performance.md`。
 
+## ImmortalWrt 开机恢复
+
+Docker 的本项目策略为 `on-failure:3`，它与宿主开机启动分别管理。目标路由器另已安装并启用 `/etc/init.d/rains-ror2`，源文件为 `tools/immortalwrt-ror2.init`，调用 `/opt/ror2/deployment/immortalwrt-boot-start.sh`。脚本通过 procd 后台运行，有限等待 Docker 与本项目容器，核对 Compose project label 为 `rains` 后才启动；已运行时不重新启动，也不重建镜像/网络。当前系统不带 timeout applet，脚本直接约束自身 Docker 客户端子进程，不依赖安装额外软件。游戏仍由 runtime 的启动期限、磁盘预留和 Docker 的有限重试约束。
+
+`/etc/init.d/rains-ror2 status` 查看容器运行及health；`stop` 暂时停服，`disable` 取消下次开机启动，`enable` 恢复。该服务是一次启动助手，procd实例正常退出不表示游戏已退出。真实路由器上已验证语法、启用链接、容器所有权、对已运行容器的幂等启动和status；目标Linux的故障/所有权模拟测试通过。**尚未执行整机重启或掉电恢复**，不能据此声称完成该项验收。
+
 ## 更新与回滚
 
 当前源码 FPTS 维护候选还需要 [精确原生配置](../profiles/native/steam-build-25921972.FPTS.cfg) 和 [overlay 组装](../profiles/README.md)。这份配置只对应本轮 UnityPlayer SHA；官方 1.0.4 DLL 即使使用同一配置也曾实际崩溃，不可直接替换回去。
