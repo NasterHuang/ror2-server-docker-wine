@@ -111,7 +111,7 @@ FRP 的公开配置模板为 `profiles/frpc.example.toml`，版本与计算所�
 
 ## 已批准的服务端 Mod
 
-经用户批准，服务端已上传 `TooManyFriends 1.2.5` 与 `PillarRevive 1.1.2` 并重启。当前配置目标为最多6人、无诅咒，`Auto ping=false`、四项 `Monster Credits=0`、`On Teleporter Completion Revive=false`。玩家仍使用原版 Steam 客户端；若出现 Mod/version mismatch，应修复服务端兼容性，不要求玩家安装补丁或跳过版本检查。
+经用户批准，服务端已上传 `TooManyFriends 1.2.5` 与 `PillarRevive 1.1.2`。当前为最多6人、无诅咒、四项 `Monster Credits=0`；晚间追加要求 `Auto ping pillars=true`、`On Teleporter Completion Revive=true`。自动标记必须同时部署 [独服兼容组件](../Compatibility/PillarReviveHeadless/README.md)，并确认 hook 安装成功；官方1.1.2裸启用会访问不存在的本地玩家。当前完整配置为 `profiles/pillarrevive-headless.cfg`，重建命令见 [批准记录](mods-approval-20261018.md)。玩家仍使用原版 Steam 客户端；若出现 Mod/version mismatch，应修复服务端兼容性，不要求玩家安装补丁或跳过版本检查。
 
 上传、重启和配置值不能证明功能已通过。原版单客户端经 FRP 入大厅、认证及服务端启动首关已通过；超过4人实际加入、角色操作与换图、死亡后的实际复活及其同步仍待实测。维护时保留批准版本和配置，单独记录这些验收结果。
 

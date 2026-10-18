@@ -41,7 +41,7 @@ FRP 公网 A2S 查询已连续3次成功，且已验证单个原版客户端入�
 
 ## 本轮服务端功能
 
-经用户批准，服务端已加载 `TooManyFriends 1.2.5` 和 `PillarRevive 1.1.2`，运行配置和查询人数上限已核对为6人、无诅咒；`Auto ping pillars=false`、四项 `Monster Credits=0`、`On Teleporter Completion Revive=false`。玩家仍使用原版 Steam 游戏。超过4人实际连接、死亡后的实际复活及其同步行为仍待实测。
+经用户批准，服务端已加载 `TooManyFriends 1.2.5` 和 `PillarRevive 1.1.2`，人数上限为6人、无诅咒、四项 `Monster Credits=0`。晚间追加设置为 `On Teleporter Completion Revive=true`、`Auto ping pillars=true`，自动标记依赖本服新加的独立兼容组件，不能在官方独服上裸启用。柱子生成约3秒后发出原版标记，供其他队友定位；死亡玩家自己因原版权限逻辑看不到自己的服务端标记。玩家仍使用原版 Steam 游戏。用户已报告一次实际游戏，发现 Boss 圈外柱子问题；当前设置变更不修复该交互锁。超过4人、传送器完成复活及新自动标记的实际多人行为仍需逐项测试。
 
 ## 两个人一起做这些检查
 

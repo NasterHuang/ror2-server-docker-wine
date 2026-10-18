@@ -1,5 +1,7 @@
 # 候选 Mod 配置
 
+晚间追加的两项 PillarRevive 设置为 true，必须在下述已批准基础 staging 上再应用 `tools/pillar_headless_overlay.py` 和 `profiles/pillarrevive-headless.cfg`，同时加入独服自动标记兼容组件。本文的 `approved_server6.py` 保留最初 false 基础配置；当前完整重建步骤见 [批准记录末尾](../docs/mods-approval-20261018.md)。不要只把官方配置改为 true 而漏掉兼容组件。
+
 `candidate.lock.json` 是2026-10-17下载并计算SHA256的 **v3候选**，包含8个包及完整manifest依赖。它保留迭代来源，**不是当前V7源码兼容组合的完整安装清单，也不是已通过联机验收的Modpack**。最新批准的6人组合在本文末尾，原版客户端经FRP入大厅及服务端首关已通过；超过4人的实际联机、真实复活及稳定多人游戏仍待验收，结果统一见 [验证状态](../docs/status.md)。
 
 显式固定的根版本为：

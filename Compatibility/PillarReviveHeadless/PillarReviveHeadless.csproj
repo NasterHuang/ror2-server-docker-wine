@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>netstandard2.1</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <AssemblyName>Rains.PillarReviveHeadless</AssemblyName>
+    <Version>0.1.0</Version>
+    <GameManaged Condition="'$(GameManaged)' == ''">$(MSBuildThisFileDirectory)../../output/source-25921972/Risk of Rain 2_Data/Managed</GameManaged>
+    <BepInExCore Condition="'$(BepInExCore)' == ''">$(MSBuildThisFileDirectory)../../output/mods-candidate/BepInEx/core</BepInExCore>
+    <R2ApiCore Condition="'$(R2ApiCore)' == ''">$(MSBuildThisFileDirectory)../../output/mods-candidate/BepInEx/plugins/RiskofThunder-R2API_Core/R2API.Core/R2API.Core.dll</R2ApiCore>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Remove="audit/**/*.cs" />
+    <Reference Include="BepInEx"><HintPath>$(BepInExCore)/BepInEx.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="0Harmony"><HintPath>$(BepInExCore)/0Harmony.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="R2API.Core"><HintPath>$(R2ApiCore)</HintPath><Private>false</Private></Reference>
+    <Reference Include="RoR2"><HintPath>$(GameManaged)/RoR2.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="UnityEngine"><HintPath>$(GameManaged)/UnityEngine.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="UnityEngine.CoreModule"><HintPath>$(GameManaged)/UnityEngine.CoreModule.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="com.unity.multiplayer-hlapi.Runtime"><HintPath>$(GameManaged)/com.unity.multiplayer-hlapi.Runtime.dll</HintPath><Private>false</Private></Reference>
+  </ItemGroup>
+</Project>
