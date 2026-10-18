@@ -1,0 +1,112 @@
+{
+  "schema": 1,
+  "roots": [
+    "bbepis-BepInExPack-5.4.2122",
+    "RiskofThunder-RoR2BepInExPack-1.46.0",
+    "RiskofThunder-R2API_Core-5.3.0",
+    "pseudopulse-SeekersPatcher-1.4.4",
+    "score-MiscFixes-1.6.1",
+    "RiskofThunder-FixPluginTypesSerialization-1.0.4",
+    "Moffein-TooManyFriends-1.2.5",
+    "Thrayonlosa-PillarRevive-1.1.2",
+    "Pyroglaive-Faster_Everything-0.1.1"
+  ],
+  "packages": [
+    {
+      "package": "RiskofThunder-BepInEx_GUI",
+      "version": "3.0.1",
+      "dependencies": [],
+      "download_url": "https://thunderstore.io/package/download/RiskofThunder/BepInEx_GUI/3.0.1/",
+      "sha256": "cf23ec3ac31368dbe7e7cfe7fcfa2f6d8704093761badf9f4d7a2e0ed6e307bf"
+    },
+    {
+      "package": "RiskofThunder-FixPluginTypesSerialization",
+      "version": "1.0.4",
+      "dependencies": [],
+      "download_url": "https://thunderstore.io/package/download/RiskofThunder/FixPluginTypesSerialization/1.0.4/",
+      "sha256": "0e56ae3e323d537249cb104cf5abb66f906625a80de9cfab5e7179e5864a55d2"
+    },
+    {
+      "package": "RiskofThunder-RoR2BepInExPack",
+      "version": "1.46.0",
+      "dependencies": [],
+      "download_url": "https://thunderstore.io/package/download/RiskofThunder/RoR2BepInExPack/1.46.0/",
+      "sha256": "a3a42ade47bde4a418d72e14ed83d3757166ba8d81cfae9d55669fabc3788edf"
+    },
+    {
+      "package": "pseudopulse-SeekersPatcher",
+      "version": "1.4.4",
+      "dependencies": [],
+      "download_url": "https://thunderstore.io/package/download/pseudopulse/SeekersPatcher/1.4.4/",
+      "sha256": "e0f4900fb6bab73aabb2234b6ba5f50b37bb9b790fba9f0e6c5dd525004a1509"
+    },
+    {
+      "package": "score-MiscFixes",
+      "version": "1.6.1",
+      "dependencies": [],
+      "download_url": "https://thunderstore.io/package/download/score/MiscFixes/1.6.1/",
+      "sha256": "770a90ecd0f2f6103dbf39e1b592a2f5667ba85462c53418f7d84804ce86331d"
+    },
+    {
+      "package": "bbepis-BepInExPack",
+      "version": "5.4.2122",
+      "dependencies": [
+        "RiskofThunder-BepInEx_GUI-3.0.1",
+        "RiskofThunder-FixPluginTypesSerialization-1.0.3",
+        "RiskofThunder-RoR2BepInExPack-1.9.0",
+        "pseudopulse-SeekersPatcher-1.3.7",
+        "score-MiscFixes-1.3.8"
+      ],
+      "download_url": "https://thunderstore.io/package/download/bbepis/BepInExPack/5.4.2122/",
+      "sha256": "8a98c3cfa83c920d21c447e0b7606c8a26ab218c35c478394a1fb080efbdb527"
+    },
+    {
+      "package": "RiskofThunder-HookGenPatcher",
+      "version": "1.2.9",
+      "dependencies": [
+        "bbepis-BepInExPack-5.4.1801"
+      ],
+      "download_url": "https://thunderstore.io/package/download/RiskofThunder/HookGenPatcher/1.2.9/",
+      "sha256": "b9cd878ab28a3a938c0e7ff651044c81b59ead78ebc45e51cb6733cabbac9f5d"
+    },
+    {
+      "package": "RiskofThunder-R2API_Core",
+      "version": "5.3.0",
+      "dependencies": [
+        "bbepis-BepInExPack-5.4.2120",
+        "RiskofThunder-HookGenPatcher-1.2.9"
+      ],
+      "download_url": "https://thunderstore.io/package/download/RiskofThunder/R2API_Core/5.3.0/",
+      "sha256": "95d6ecd1f7d977917ce74e0d72881728e6c97af7d5a82fe968a88567597ffcbd"
+    },
+    {
+      "package": "Moffein-TooManyFriends",
+      "version": "1.2.5",
+      "dependencies": [
+        "bbepis-BepInExPack-5.4.2117",
+        "RiskofThunder-R2API_Core-5.1.1"
+      ],
+      "download_url": "https://thunderstore.io/package/download/Moffein/TooManyFriends/1.2.5/",
+      "sha256": "e0f22e173970e7972b56d91b2979966706cb7e191dfa0eea04f4618831fae8af"
+    },
+    {
+      "package": "Thrayonlosa-PillarRevive",
+      "version": "1.1.2",
+      "dependencies": [
+        "bbepis-BepInExPack-5.4.2113"
+      ],
+      "download_url": "https://thunderstore.io/package/download/Thrayonlosa/PillarRevive/1.1.2/",
+      "sha256": "94f44405487cd1f2c98530220d584a255a03d75552abd108f9c13dfcb1e74b34"
+    },
+    {
+      "package": "Pyroglaive-Faster_Everything",
+      "version": "0.1.1",
+      "dependencies": [
+        "bbepis-BepInExPack-5.4.2122",
+        "RiskofThunder-RoR2BepInExPack-1.43.0"
+      ],
+      "download_url": "https://thunderstore.io/package/download/Pyroglaive/Faster_Everything/0.1.1/",
+      "sha256": "9c438bd063adf211a586f9935b347a5bcbd632ae3fd2569ca1963e69a4152cf1"
+    }
+  ]
+}
