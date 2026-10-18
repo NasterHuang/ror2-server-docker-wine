@@ -1,0 +1,8 @@
+{
+  "version": "0.71.0",
+  "source": "https://github.com/fatedier/frp/releases/download/v0.71.0/frp_0.71.0_linux_amd64.tar.gz",
+  "archiveSha256": "84f27e39f11169f7adcef8e8b70c9329de17747b1f14dad9fb95eef5682ea716",
+  "frpcSha256": "f79fff8de3089ec711ff8bdd4b73e00dfe491a1c3d754983c8b0f8d58c21b068",
+  "officialArchiveOverHttps": true,
+  "officialDigestChecked": false
+}

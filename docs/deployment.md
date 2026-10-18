@@ -85,14 +85,35 @@ sh tools/immortalwrt-firewall.sh remove
 
 目标软路由已执行固定桥网络重建、apply、check和reload，其他已有容器保持运行；日志为 `output/router-baseline-stable-network-rollout.log`。尚未验证宿主整机重启及OpenClash再次重载后的完整行为。此工具不绕过OpenClash、不更改DNS响应模式，也不提供Steam登录就绪检测；公网与Steam最终登录仍须独立验证。启动阶段的 `LoggedOn=False` 样本不能判定最终登录失败；`Server.SteamId` 是构造时缓存，也不能当作登录ready指标。
 
-玩家关闭 crossplay，保持同样的 Steam build 与需要双端的 Mod/config，游戏控制台：
+玩家从 Steam 正常启动官方原版游戏，关闭 crossplay，保持与服务器兼容的 Steam build；无需客户端 Mod、复制副本或自定义启动器。游戏控制台（`Ctrl + Alt + 反引号键`）的 LAN 连接方法：
 
 ```text
-cl_password "your-password";
-connect "YOUR_SERVER_IP:27015";
+cl_password "SERVER_PASSWORD";
+connect "LAN_HOST:27015";
 ```
 
-已有公网 IPv4 时优先直连。确需 FRP 时使用游戏层 UDP proxy，确认传输层延迟、丢包和额外转发成本。具体见 `network-performance.md`。
+当前公网入口已使用 FRP，控制台改为：
+
+```text
+cl_password "SERVER_PASSWORD";
+connect "PUBLIC_HOST:28015";
+```
+
+以上均为占位符，私人连接信息另存 `output/原版客户端连接说明.txt` 和 `output/FRP公网连接说明.txt`。云端 UDP `28015/28016/28017` 分别转发到软路由 `27015/27016/27017`；frpc 的本地目标使用已验证可达的宿主 LAN IP，而非 `127.0.0.1`。云端 `27015` 为另一游戏使用，不可占用。公网 A2S 已经 FRP 连续3次成功，但广告 `gamePort` 仍是 `27015`，所以本轮不依赖 Steam 浏览器自动连接，须显式 `connect PUBLIC_HOST:28015`。
+
+2026-10-18 13:32，未修改的原版客户端通过该 FRP 入口成功进入大厅并认证；13:32:40 服务端启动首关 `lakes`，新鲜 `game.json` 显示 `runActive=true`、1名玩家、Steam 真实认证成功1次/失败0次、玩家受控实体1个及怪物6个。诊断副本原版 `RoR2.dll` 哈希匹配，没有 BepInEx、winhttp DLL、Mod 或探针；原 Steam 安装目录未改。本次为无图形诊断，不能认定图形客户端正常游玩或客户端全部实体同步已通过。实际移动、伤害、拾取、多人、换图、复活及长时稳定性仍待实测。
+
+软路由原生 `frpc 0.71.0` 由 `/etc/init.d/rains-frpc` 通过 procd 管理，经 TLS TCP `7000` 复用云上现有 `frps 0.71.0`，部署时没有重启现有 frps。可用该服务的 `status/start/stop/restart` 管理本项目客户端；frpc 不依赖电脑保持开机。已实测单独重启 frpc，约4秒后3个代理重新注册，公网 A2S 再次连续3次成功；游戏和云 frps 未重启，云 frps systemd `ActiveEnter` 仍为10月1日、`NRestarts=0`。活动对局中断线恢复仍待验证。维护时只操作本项目 frpc 服务，勿重启共享 frps 或改动其他游戏的端口。具体路径和性能验收见 [网络说明](network-performance.md)。
+
+FRP 的公开配置模板为 `profiles/frpc.example.toml`，版本与计算所得 SHA 固定在 `profiles/frpc-0.71.0.lock.json`；该摘要用于复现和传输校验，本次未独立核验作者发布的摘要或签名。重新部署时从锁中的官方 HTTPS 归档提取 `frpc`，复核归档和二进制两个 SHA，使用私下保管的既有 frps token，替换模板地址与 `ROUTER_LAN_IP`，保存到 `/opt/ror2/deployment/frp/frpc.toml`。不要覆盖或重启共享 frps。该目录应为 root 所有、权限700，配置600、二进制755；认证配置不得提交到Git。
+
+将 `tools/immortalwrt-frpc.init` 安装到已核对属于本项目的 `/etc/init.d/rains-frpc` 后，先 `ash -n /etc/init.d/rains-frpc` 及 `/opt/ror2/deployment/frp/frpc verify -c /opt/ror2/deployment/frp/frpc.toml`，再执行 `enable` 和 `start`。新部署须从外网复测查询及真实游戏连接，不能只凭配置校验通过认定可用。停用本项目公网入口可执行该服务的 `stop`、`disable`；这不停止游戏或其他 frps 客户端。
+
+## 已批准的服务端 Mod
+
+经用户批准，服务端已上传 `TooManyFriends 1.2.5` 与 `PillarRevive 1.1.2` 并重启。当前配置目标为最多6人、无诅咒，`Auto ping=false`、四项 `Monster Credits=0`、`On Teleporter Completion Revive=false`。玩家仍使用原版 Steam 客户端；若出现 Mod/version mismatch，应修复服务端兼容性，不要求玩家安装补丁或跳过版本检查。
+
+上传、重启和配置值不能证明功能已通过。原版单客户端经 FRP 入大厅、认证及服务端启动首关已通过；超过4人实际加入、角色操作与换图、死亡后的实际复活及其同步仍待实测。维护时保留批准版本和配置，单独记录这些验收结果。
 
 ## ImmortalWrt 开机恢复
 

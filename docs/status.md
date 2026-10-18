@@ -1,6 +1,12 @@
 # 实际验证状态
 
-当前测试要求已澄清：玩家使用官方Steam原版客户端，不安装此前诊断包、不改造客户端。2026-10-18 12:58复核时，路由器服务端仍为Steam在线、healthy、空大厅，而电脑Steam原生探针不可用，服务端运行不依赖电脑。V7插件网络清单静态复核未发现强制客户端Mod要求（`output/vanilla-compat-audit.txt`），但不能据此将此前Mod诊断客户端的加入/开局结果转记为原版客户端通过；本轮原版实际连接仍待测试。
+玩家使用官方 Steam 原版客户端，不安装此前诊断包、不改造客户端。用户已反馈此前原版客户端可以连接；2026-10-18 13:32 又完成了新增 Mod 后的独立自动测试：无 BepInEx、无 winhttp.dll、原始游戏程序集 SHA 匹配的客户端副本，经云端 FRP UDP `28015` 进入大厅，服务端记录真实 Steam 玩家认证成功1、失败0、networkUsers=1。随后通过原版 `pregame_start_run` 启动首关 `lakes`，服务端记录1个玩家受控实体和6个怪物实体。该客户端未装遥测探针，且以无图形模式运行；不能把这些结果写成图形游玩或客户端所有实体复制通过。原玩家 Steam 安装目录未改写。
+
+FRP 使用云上既有 frps 0.71.0，软路由原生 frpc 0.71.0 由独立 procd 服务管理并已启用开机启动，TLS TCP7000连接、三个公网 UDP `28015/28016/28017` 转发至软路由 `27015/27016/27017`。云端现有 `27015` 属于其他游戏，未改动。公网 A2S 在 Mod 安装后及 frpc 单独重启后各3/3成功，返回 AppID632360、maxPlayers=6；frpc 重启约4秒后恢复注册，游戏容器未重启，云端 frps 的启动时间仍为10月1日、NRestarts=0。广告中的 gamePort 仍为27015，玩家须显式控制台连接云端28015。证据：`output/frp-public-a2s-approved-6.json`、`output/frp-public-a2s-after-frpc-restart.json`、`output/router-frpc-restart.txt`、`output/cloud-frps-final.txt`。
+
+已按用户批准安装并加载 TooManyFriends 1.2.5 与 PillarRevive 1.1.2，运行配置核对为6人、Curse Stacks=0、Auto ping pillars=false、四项 Monster Credits=0、On Teleporter Completion Revive=false。证据：`output/router-approved-6-validation.txt`、`output/router-frp-vanilla-join-2.txt`、`output/router-frp-vanilla-run-1.txt`。**超过4人的实际联机、真实复活、双人以上公网操作与同步、换图结算及长时稳定性均待测试；人数广告与插件加载不替代这些验收。** 以下表格保留早期实现及历史结果。
+
+13:34:42 自动测试客户端已停止，服务器自行返回空大厅，Steam在线、healthy、networkUsers=0、runActive=false、scene=lobby；没有为此重启游戏。该时刻 CPU21.77%、内存2.574GiB/6GiB，仅为空大厅单点，不构成性能对照。FRP 与游戏启动助手保持启用，尚未实机重启宿主验证。私人连接步骤已更新至 `output/FRP公网连接说明.txt` 和 `output/原版客户端连接说明.txt`，仅包含游戏连接信息，不含SSH或FRP管理凭据。`output/router-frp-after-qa-stop.txt` 为本次退出后的新鲜状态；此前90项目标Linux检查仍为实现基线，新组装CLI另完成离线两次产物一致及错误输入拒绝验证，见 `output/approved6-repro-verification.json`。
 
 更新日期：2026-10-18（Asia/Shanghai）。目标是 N5105 / ImmortalWrt / Docker 上兼容当前 Steam 客户端的独立服务器。**V7 已由普通 Compose 配置重建，并独立完成加载、host、Steam登录、单客户端LAN加入和首关启动。03:42本轮服务端与只读客户端样本均为golemplains2、runActive=true，各记录1个玩家受控实体和5个怪物实体，服务端真实认证成功1、失败0。这证明单客户端游戏链路及复制对象观察，尚不证明可视化游玩、伤害、拾取、时钟一致或同步质量。双客户端、WAN 和占用对局长时验收仍未完成。** 以下保留历史失败与当前结果；容器健康和结构测试不构成稳定多人游戏就绪。
 
@@ -37,7 +43,7 @@
 | 已准备、图形验证待完成 | V7.2客户端测试包 | `output/Rains-client-test-25921972-v7.2.zip` 约26MB，SHA-256 `26a98af3d4fb8ed8f48e93472ce789a57f854149dbb07389e28fc4862a901fe4`；包含最新preflight修正及保留上游字节的 `.gitattributes`，游戏组合及本地ServerTools `022d5abc…` 不变 | 测试包准备不等于图形客户端或公网加入通过；私人连接文件不在报告中展开 |
 | 实际失败 | 首次候选 Mod 加载 | BepInEx preloader 和 HookGen 已运行，但两个 preloader 插件失败，尚未证明 Chainloader/R2API 完整加载 | `pseudopulse-SeekersPatcher-1.3.7` 字段匹配 `Sequence contains no matching element`；FixPluginTypesSerialization 下载 Unity PDB 时 `TLS Support not available`；`output/router-mod-loader-diagnostic-3.txt`，修复与升级候选待实测 |
 | 实际部分通过 | Steam后台登录与单玩家认证 | V6实时LoggedOn=true；首次LAN Mod客户端加入时成功回调累计1，03:28首关样本累计2、失败0、networkUsers=1 | `output/router-v6-client-retry-2.txt`、`output/router-resume-run-result-1.txt`；累计回调数不等于独立账号数，仍未验证第二个账号、完整重连流程或对局认证稳定性 |
-| 未验收 | P2P、WAN/FRP与公网玩家握手 | 已有无Mod及V6 Mod单客户端LAN大厅结果，公网链路仍未验证 | 不能由LAN加入推断Steam浏览器可见、P2P、WAN直连或FRP可用 |
+| 实际部分通过 | FRP 公网单客户端握手和服务端首关 | 无Mod原版客户端经云端28015入大厅，真实认证成功1/失败0，服务端进入lakes | `output/router-frp-vanilla-join-2.txt`、`output/router-frp-vanilla-run-1.txt`；P2P、WAN直连、Steam浏览器自动连接、双人同步和图形操作仍未验收 |
 | 未验收 | 多人开局、换图、重连、结算、长时稳定性 | 未完成 | 至少两个真实客户端按 [validation.md](validation.md) 执行 |
 | 未验收 | 延迟、怪物瞬移、后期负载与 Mod 性能 | 未完成实战比较 | 参数配置不能证明同步问题改善；需记录帧时间、RTT、丢包和路由负载 |
 

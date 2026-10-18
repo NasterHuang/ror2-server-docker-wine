@@ -1,8 +1,10 @@
 # 公网网络、N5105 资源和同步排查
 
-日期：2026-10-17。以下是实施和实验方案，不是已测性能结论。先完成无 Mod 的真实联机，再逐批加 Mod。
+日期：2026-10-18。以下区分已部署的网络路径与尚待完成的游戏、性能验收。玩家使用官方原版 Steam 客户端，无需安装 Mod 或启动器；服务端批准的 Mod 单独记录在 [测试说明](player-test.md)。
 
-当前真实进展为同 build 单客户端 LAN Mod 大厅认证及服务端首关启动；只读客户端遥测已见同一关卡、玩家控制角色和怪物复制对象。尚未完成可视化操作、双人及公网验收。固定 `br-ror2` 与独立 fw4 zone 已部署并重载；详细规则和移除方式见 [部署说明](deployment.md)。此前自动命名桥未进入 zone 导致 LAN reject，不能由 Docker 自带 ACCEPT 就推断 fw4 已放行。
+此前已完成同 build 单客户端 LAN Mod 大厅认证及服务端首关启动，只读客户端遥测见同一关卡、玩家控制角色和怪物复制对象。2026-10-18 13:32，未修改的原版客户端经 FRP 公网入口成功进入大厅并认证，服务端随后启动首关 `lakes`：`runActive=true`、`networkUsers=1`、Steam 真实认证成功1次/失败0次、玩家受控实体1个、怪物6个。该诊断副本原版 `RoR2.dll` 哈希匹配，没有 BepInEx、winhttp DLL、Mod 或探针。
+
+本次原版诊断使用无图形客户端，其日志出现 `RunCameraManager`，也有无图形运行相关的 UI 空引用，不能据此证明图形客户端可玩或客户端全部实体同步。实际移动、伤害、拾取、双人及更多人公网、换图、实际复活和长时稳定性仍待验证。固定 `br-ror2` 与独立 fw4 zone 已部署并重载；详细规则和移除方式见 [部署说明](deployment.md)。此前自动命名桥未进入 zone 导致 LAN reject，不能由 Docker 自带 ACCEPT 就推断 fw4 已放行。
 
 显式执行 `vsync_count 0; fps_max 60;` 后某次空大厅容器 CPU 为21.95%、内存2.348GiB。此前111.61%来自不同时间的单点快照；这不是同场景重复基准，不能算出性能提升比例，更不能说明怪物瞬移或 RTT 已改善。限帧与物理模拟步长是不同设置，本轮未据此提高 timestep 或网络 tick。
 
@@ -16,27 +18,48 @@ Docker bridge 模式检查 WAN 到发布 UDP 端口的转发链，host 模式检
 
 公网地址是否真正落在设备 WAN、是否有上级 NAT、ISP 是否阻断 UDP、PPPoE MTU、DNS 指向均需实际检查。Docker Desktop 的 host networking 行为不能替代目标 Linux 路由器验证。
 
-## FRP 为备选路径
+## 当前已部署的 FRP 路径
 
-FRP [官方 UDP 代理文档](https://gofrp.org/en/docs/features/tcp-udp/)明确支持 `type = "udp"`。对每个实测必须的 UDP 端口建立独立代理，不以 TCP 代理代替。示意片段（不是可直接部署的完整凭据配置）：
+软路由已安装原生 `frpc 0.71.0`，通过 procd 服务 `/etc/init.d/rains-frpc` 独立运行和开机启动，电脑退出不影响该进程。它通过 TLS TCP `7000` 连接云上现有 `frps 0.71.0`；部署时复用现有 frps，没有重启它。云端 UDP `27015` 属于另一游戏，本项目使用独立的 `28015–28017`，不占用该端口。
+
+| 用途 | 云端 UDP 入口 | 软路由 UDP 目标 |
+| --- | --- | --- |
+| 游戏连接 | `28015` | `27015` |
+| A2S 查询 | `28016` | `27016` |
+| Steam server | `28017` | `27017` |
+
+公网 A2S 经 FRP 已连续3次查询成功，单个原版客户端也已通过 `PUBLIC_HOST:28015` 入大厅。结果中的 `gamePort` 仍为 `27015`，没有自动改成云端外部端口。因此原版客户端应执行 `connect "PUBLIC_HOST:28015"`，不能依赖 Steam 服务器浏览器自动选择端口。LAN 仍执行 `connect "LAN_HOST:27015"`；实际地址和密码只放私人连接说明。
+
+单独重启本项目 frpc 后，3个代理约4秒重新注册，公网 A2S 再次连续3次成功；游戏和云上 frps 均未重启。云 frps 的 systemd `ActiveEnter` 仍为10月1日，`NRestarts=0`。这验证了本次 frpc 连接恢复，尚未验证活动对局中重启 frpc 后玩家能否保持或恢复连接。
+
+**原版客户端经 FRP 入大厅、认证及服务端启动首关已通过；图形客户端实际操作、双人以上公网同步和长时稳定性尚未验证。** 已有结果不能替代后续项目，也不能据此声称 RTT、丢包或怪物瞬移得到改善。
+
+FRP [官方 UDP 代理文档](https://gofrp.org/en/docs/features/tcp-udp/)明确支持 `type = "udp"`。每个游戏 UDP 端口使用独立代理；当前 frpc-frps 的控制和复用传输为 TLS TCP `7000`，这与玩家使用的 UDP 游戏入口是不同层次。示意片段（不是可直接部署的完整凭据配置）：
 
 ```toml
 [[proxies]]
 name = "ror2-game"
 type = "udp"
-localIP = "127.0.0.1"
+localIP = "ROUTER_LAN_IP"
 localPort = 27015
-remotePort = 27015
+remotePort = 28015
 
 [[proxies]]
 name = "ror2-query"
 type = "udp"
-localIP = "127.0.0.1"
+localIP = "ROUTER_LAN_IP"
 localPort = 27016
-remotePort = 27016
+remotePort = 28016
+
+[[proxies]]
+name = "ror2-steam"
+type = "udp"
+localIP = "ROUTER_LAN_IP"
+localPort = 27017
+remotePort = 28017
 ```
 
-上述 `localIP` 假设 frpc 在宿主或 host 网络中；frpc 在独立 bridge 容器时，127.0.0.1 是 frpc 自己，需要改为正确可达的游戏服务地址。frps 云防火墙和系统防火墙也须允许对应 UDP。若游戏需要额外固定 Steam UDP 端口，按实际监听补齐。服务器公布的地址/端口可能不自动反映 FRP 外部端点，浏览器发现和 console connect 都要实测。
+`ROUTER_LAN_IP` 是占位符。当前 frpc 在软路由宿主运行，实际已验证通过宿主 LAN IP 访问 Docker 发布的三个 UDP 端口；本轮不使用 `127.0.0.1` 回环地址。若未来调整 Docker 发布方式或 frpc 网络位置，须重新验证目标地址。frps 云防火墙和系统防火墙也须允许对应 UDP。服务器公布地址和端口是否对应外部入口须单独验证。
 
 `type="udp"` 与 frpc-frps 的 `transport.protocol` 是两个层次。FRP [官方传输配置](https://gofrp.org/en/docs/features/common/network/network/)提供 TCP/KCP/QUIC 等选项；不能推定换用 QUIC 就降低游戏延迟。先基准直连，再对同一云节点比较 FRP 默认传输和 QUIC，记录额外 RTT、抖动、CPU 与丢包。不要默认开启压缩：它增加 CPU；小包是否受益必须测量。FRP 转发也不保证保留游戏所见的玩家原始源地址。
 

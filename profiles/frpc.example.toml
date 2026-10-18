@@ -1,0 +1,35 @@
+# Copy as a private frpc.toml; never commit real tokens or addresses.
+# Replace ROUTER_LAN_IP with the router's LAN address. Docker published UDP
+# ports on this router were verified through that address, not loopback.
+serverAddr = "YOUR_FRPS_ADDRESS"
+serverPort = 7000
+user = "rains-ror2"
+loginFailExit = false
+udpPacketSize = 1500
+auth.method = "token"
+auth.token = "REPLACE_PRIVATELY"
+transport.protocol = "tcp"
+transport.tls.enable = true
+log.to = "console"
+log.level = "info"
+
+[[proxies]]
+name = "game"
+type = "udp"
+localIP = "ROUTER_LAN_IP"
+localPort = 27015
+remotePort = 28015
+
+[[proxies]]
+name = "query"
+type = "udp"
+localIP = "ROUTER_LAN_IP"
+localPort = 27016
+remotePort = 28016
+
+[[proxies]]
+name = "steam"
+type = "udp"
+localIP = "ROUTER_LAN_IP"
+localPort = 27017
+remotePort = 28017
