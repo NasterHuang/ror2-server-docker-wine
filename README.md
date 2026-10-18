@@ -1,41 +1,77 @@
-# RoR2Server：新版 Steam 独立服务器改造
+# rains · Risk of Rain 2 独立服务器实验
 
-基于 [albodin/RoR2Server](https://github.com/albodin/RoR2Server)，保留 GPL-3.0。目标是在 N5105 / ImmortalWrt / Docker 运行最新 Steam《雨中冒险2》，支持 BepInEx、R2API 和固定版本的 Thunderstore Mod。
+[![离线回归](https://github.com/NasterHuang/rains/actions/workflows/ci.yml/badge.svg)](https://github.com/NasterHuang/rains/actions/workflows/ci.yml)
+[![许可证：GPL-3.0](https://img.shields.io/badge/license-GPL--3.0-blue.svg)](LICENSE)
 
-部署边界：服务端完全自主运行于软路由，玩家使用官方Steam原版客户端，不要求安装客户端Mod、打补丁、复制游戏或专用启动器。此前客户端包与副本仅作历史诊断；当前连接方法见 [原版客户端测试说明](docs/player-test.md)。默认配置仅采用兼容原版客户端的服务端组件；需要双端安装的内容Mod不作为该配置的前提。
+面向 x86_64 Linux / ImmortalWrt / Docker 的《雨中冒险 2》服务端实验，基于 [albodin/RoR2Server](https://github.com/albodin/RoR2Server)。提供精确 Steam 构建补丁、Wine 运行层、固定版本 Mod 组装、软路由启动恢复与 FRP 配置模板。
 
-**当前为实验开发版本，尚未验收为可用独立服务器。** 原项目改写版本号、掩盖 Steam 初始化失败的方案已移除。IL 补丁成功、镜像构建成功和 UDP 查询响应，都不代表多人联机成功。
+**实验版本：已验证单个原版客户端连接及服务端首关启动，尚未完成稳定多人游戏验收，也不是一键部署的成品。** 玩家使用官方 Steam 原版客户端；当前服务端方案不要求玩家安装 Mod、复制游戏或使用专用启动器。
 
-当前进度与失败证据统一记录在 [实际验证状态](docs/status.md)。软路由独立运行服务器与 FRP；经批准已增加 TooManyFriends 1.2.5（6人）及 PillarRevive 1.1.2（无诅咒）。无Mod原版客户端已通过云端 FRP 入大厅及真实 Steam 认证，服务端已启动首关；玩家无需客户端测试包或自定义启动器。目标Linux的90项Python检查通过。超过4人实际联机、真实复活、双人同步、图形操作、换图及占用对局长时稳定性仍未验收；UI和JobTempAlloc等日志仍需检查，不能称为最终稳定版。
+## 功能与范围
 
-## 已落地
+- **精确构建补丁**：固定原始 DLL 的 SHA、方法签名及 IL；转换前整组核对，保留真实 build ID 与 Steam 认证，版本漂移时拒绝继续。
+- **受控运行**：游戏来源只读、事务准备与失败回滚、非 root Wine/Xvfb、启动超时、有限重启、磁盘余量与日志限制。
+- **可追溯 Mod 组合**：Thunderstore 版本及 SHA 锁、离线展开校验、本地 FPTS 维护补丁、精确 Unity PE/PDB 配置和来源记录。
+- **服务端组件**：6 人人数配置、PillarRevive 复活及独服标记适配、Faster Everything 交互加速；具体配置与验收边界见 [Mod 文档](docs/mods.md)。
+- **ImmortalWrt 部署**：固定 Docker 桥、项目 fw4 规则、procd 启动助手和独立 frpc 服务，支持脱离桌面电脑运行。
 
-- 对用户已更新 Steam build `25921972` 的真实 DLL 做结构审计，原文件 SHA256 `48f2758cccbe1a5efba88cffe0a68631953f489a71a92726572c15a4c57ff90c`。
-- 清单锁定 SHA / 方法签名 / IL 偏移，转换前整组检查，独立输出与序列化回读；保留真实 build ID 和版本认证逻辑。
-- 原版只读、事务预制、失败回滚、更新漂移拒绝、非 root Wine/Xvfb 运行层、停止信号、有限重启、日志限制。
-- Thunderstore 精确版本与依赖 lock、SHA256 / ZIP / manifest 校验、安全离线展开；已迭代至需本地FPTS源码overlay的候选，官方包锁本身不足以复现可启动组合，见 [候选说明](profiles/README.md)。
-- 真实软路由 SSH 资源核查；纯净游戏 snapshot 已在电脑生成，原玩家目录未改动。
-- 固定 Docker 桥 `br-ror2` 与本项目持久 fw4 zone 已部署、check/reload；显式60 FPS配置已有空大厅资源快照，尚非对局性能基准。
-- Python 及合成 IL 回归测试和 CI 配置。真实测试状态随开发记录，见下文。
+## 验证状态
 
-## 关键边界
+以下是截至 **2026-10-18（Asia/Shanghai）** 的记录，不代表每台设备或后续游戏版本的运行结果。完整历史见 [实际验证状态](docs/status.md)。
 
-当前客户端仍有多条 Steam client singleton 依赖，包括平台初始化、用户/存档/成就、lobby、P2P 和连接检测。现有三项保守补丁不足以证明无 Steam 客户端的完整启动；参见 [补丁审计](RoR2Patcher/README.md)。不会通过伪造 build ID、吞掉初始化错误或关闭版本检查来声称兼容。
+| 层级 | 已记录结果 | 仍待验证 |
+| --- | --- | --- |
+| 单客户端链路 | 无 Mod 原版诊断客户端经 FRP 入大厅，真实 Steam 认证成功，服务端启动首关 | 图形客户端移动、伤害、拾取及完整实体同步 |
+| 服务端 Mod | 6 人广告、PillarRevive 及独服标记组件、Faster Everything 加载和配置校验 | 超过 4 人实测、实际复活与标记、交互动画一致性 |
+| 部署与恢复 | 软路由独立运行；frpc 单独重启后恢复注册及查询 | 宿主重启、掉电恢复、活动对局中断线恢复 |
+| 多人稳定性 | 尚未完成最终验收 | 双人以上同步、多次换图、结算和长时对局 |
 
-当前这台软路由实测约 11.54 GiB RAM，Optane M10 当前可寻址容量为 13.41 GiB；新版游戏单份约 3.84 GiB。已采用电脑保存原版/回滚、路由仅单副本的实验部署，容量复核时 `/opt` 仍有约 1.3 GiB 余量，可继续受控诊断。用户已授权必要时扩容；但 GPT、分区和 ext4 交叉核查确认当前盘无可直接在线扩展的完整 ext4 块，因此没有改分区或 DockerRoot。详见 [容量证据与后续方案](docs/router-assessment.md)。性能、怪物瞬移和公网入服必须实测，不能从配置推导已解决。
+容器 healthy、补丁成功、插件加载或 A2S 查询各自只能证明对应层级。测试标准见 [真实多人验收](docs/validation.md)。
 
-## 从这里开始
+## 开始使用
 
-- [部署、单副本方案和回滚](docs/deployment.md)
-- [实际验证状态与当前阻塞](docs/status.md)
-- [源码与最新兼容研究](docs/research.md)
-- [补丁工具与实际 DLL 审计](RoR2Patcher/README.md)
-- [Mod 锁定、候选及客户端要求](docs/mods.md)
-- [软路由实测资源](docs/router-assessment.md)
-- [网络、FRP、CPU 与同步诊断](docs/network-performance.md)
-- [真实多人测试与验收门槛](docs/validation.md)
+1. 阅读 [部署与回滚](docs/deployment.md)，准备合法原版游戏、Python 3.11+、.NET SDK 8，以及目标 x86_64 Linux 的 Docker Compose。游戏构建必须与审核清单匹配；当前记录基于 Steam build `25921972`。
+2. 按 [补丁审计](RoR2Patcher/README.md) 和 [Mod 来源与组装](profiles/README.md) 准备候选。官方包锁还需要本地兼容源码 overlay、ServerTools 和生成的 MMHOOK，不能直接把裸锁输出当作完整可运行环境。
+3. 复制 `.env.example` 为本地 `.env`，填写已审核的 SHA、密码及明确的实验开关，准备 game/config/mods/data 挂载。核对设备资源后再运行下方 Compose 命令。
+4. 按 [原版客户端连接与测试](docs/player-test.md) 从 LAN 开始验证，再检查公网及多人行为。
 
-`profiles/candidate.lock.json` 保留v3候选；[源码overlay专用基础锁](profiles/steam-25921972-source-overlay.experimental.lock.json) 固定官方包来源，其中FPTS1.0.4必须替换，不能直接用于当前Unity。V5与维护版V6均已在Wine取得首次大厅启动结果；V6的正常关闭、再次重启和长时运行仍待验收。不要把游戏、Steam凭据、SSH连接文件、运行数据或密码提交仓库。镜像构建上下文已排除这些文件，游戏文件不进入镜像。
+```sh
+git clone https://github.com/NasterHuang/rains.git
+cd rains
+cp .env.example .env
+# 先按部署文档完成游戏、补丁清单、Mod 和挂载准备，再运行：
+docker compose config --quiet
+docker compose build
+docker compose up -d
+docker compose logs -f --tail=200
+```
+
+`.env.example` 默认 `ACK_EXPERIMENTAL=0`，缺少真实来源、审核清单或实验确认时拒绝启动。`compose.router.yml` 用于已经在电脑预制并完成传输校验的 runtime；不能跳过准备阶段。
+
+## 仓库导航
+
+| 目录或文档 | 用途 |
+| --- | --- |
+| [RoR2Patcher/](RoR2Patcher/README.md) | 合成 IL 测试、精确构建补丁及审核清单 |
+| [Compatibility/](Compatibility/) | FPTS 维护源码与 PillarRevive 独服适配 |
+| [ServerTools/](ServerTools/README.md) | 服务端启动、状态观测及 Wwise 兼容组件 |
+| [profiles/](profiles/README.md) | Mod 来源锁、配置模板和分阶段重建说明 |
+| [tools/](tools/) / [tests/](tests/) | 快照、组装、运行、网络诊断与离线回归 |
+| [docs/deployment.md](docs/deployment.md) | 部署、单副本策略、启动恢复与回滚 |
+| [docs/network-performance.md](docs/network-performance.md) | 网络、FRP、CPU 和同步诊断 |
+| [docs/router-assessment.md](docs/router-assessment.md) | N5105 实测资源与存储限制 |
+| [docs/research.md](docs/research.md) | 兼容研究和历史失败记录 |
+
+文档中的 `output/` 路径指本地诊断产物，未随仓库公开；它们是历史记录的引用，不是可下载附件。历史客户端诊断包和启动脚本仅供研究，当前玩家连接无需使用。
+
+## 开发与检查
+
+```sh
+python -m unittest discover -s tests -v
+dotnet run --project RoR2Patcher/tests/Patcher.Tests.csproj
+```
+
+这些检查使用合成数据，不需要专有游戏 DLL。CI 在 Linux / Windows 运行 Python 回归，在 Linux 检查补丁工具与 Docker 构建。参与方式见 [CONTRIBUTING.md](CONTRIBUTING.md)。
 
 ## 重建源码兼容候选
 
@@ -50,26 +86,8 @@ python3 tools/native_overlay.py --base output/rebuild-official --build output/re
 
 符号工具审计的是官方DLL；可用其重新生成配置与已提交配置逐项核对。overlay示例使用已提交的精确配置，仅适用UnityPlayer SHA256 `fae6c04f23916263879196211ed241aee5f1f1b53ba4566bb99d4df8526cc105` 与对应GUID，换Unity必须重审，不能直接沿用偏移。overlay才显式替换为带本地补丁来源的维护DLL。此流程只生成一个候选staging；仍需按现有准备流程组装精确版本MMHOOK、本地Wwise兼容及ServerTools插件、游戏补丁和release清单，再传输校验、启动和验收。它不是一条命令完成部署，也不会把本地替换伪称为官方Thunderstore原包。详情见 [候选与来源说明](profiles/README.md)。
 
-## 本地回归测试
+## 许可与安全
 
-```sh
-python -m unittest discover -s tests -v
-dotnet run --project RoR2Patcher/tests/Patcher.Tests.csproj
-```
+本项目保留 [GPL-3.0](LICENSE) 及上游历史；FPTS 固定源码保留其 LGPL-3.0 许可。第三方来源与权利边界见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
 
-这些测试不需要专有游戏 DLL。实际 DLL 的审计、输出、镜像构建日志等保存在忽略提交的 `output/`，只分发补丁源码、清单和工具，不分发游戏程序集。
-
-## 构建与运行
-
-先阅读部署文档，完成精确构建审计与原版导出。复制 `.env.example` 为 `.env`，配置 SHA、密码及明确的实验开关；准备 game/config/mods/data 目录。
-
-```sh
-docker compose config --quiet
-docker compose build
-docker compose up -d
-docker compose logs -f --tail=200
-```
-
-缺少真实来源、审核清单或实验确认时会拒绝启动。默认不是已开箱验收的服务端；`compose.router.yml` 用于电脑已预制且传输校验过的 runtime。
-
-游戏本体、Unity、Steam、BepInEx、R2API 和其它 Mod 各自适用其许可证；本项目的 GPL 不改变第三方或游戏权利。
+本仓库仅发布源码、清单和工具，不分发游戏本体、游戏程序集、Mod 二进制或私人运行数据。`.env`、FRP token、SSH 凭据和私人连接信息应保存在忽略目录；报告问题前请按 [SECURITY.md](SECURITY.md) 脱敏。
