@@ -1,6 +1,6 @@
 # 来源与第三方许可
 
-本项目基于 [albodin/RoR2Server](https://github.com/albodin/RoR2Server)，保留原有 Git 历史及根目录 [GPL-3.0 许可证](LICENSE)。`rains` 在此基础上增加精确构建审计、实验补丁、Mod 组装、运行验证和 ImmortalWrt 部署工具。
+本项目基于 [albodin/RoR2Server](https://github.com/albodin/RoR2Server)，保留原有 Git 历史及根目录 [GPL-3.0 许可证](LICENSE)。RainHost（原名 `rains`）在此基础上增加精确构建审计、实验补丁、Mod 组装、运行验证和 ImmortalWrt 部署工具。
 
 | 组件 | 来源和许可记录 |
 | --- | --- |

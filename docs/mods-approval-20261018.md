@@ -63,7 +63,7 @@ python3 tools/approved_server6.py \
   --output output/mods-server-approved-6-rebuilt
 ```
 
-工具拒绝丢失或被修改的基底清单、错误 native guard/overlay、不同 ServerTools/MMHOOK、依赖版本或 SHA 变化、额外未批准 Mod，以及现存输出目录。基底须为仅含 Mod 及 release 清单的构建产物，不能使用运行中的全游戏目录。缓存包含锁内官方 ZIP 的 `<sha256>.zip` 文件，缺失即失败，工具不下载。它保持基底文件不变，仅加入两款批准 Mod、上述 PillarRevive 配置、`[Game] LobbySize = 6`、来源记录和新的清单；`runtimeVerified` 保持 false。基底丢失后须按主 README 重建源码兼容组件和匹配的 ServerTools/MMHOOK，并重新验证，不能依靠这个官方包锁恢复完整服务。
+工具拒绝丢失或被修改的基底清单、错误 native guard/overlay、不同 ServerTools/MMHOOK、依赖版本或 SHA 变化、额外未批准 Mod，以及现存输出目录。基底须为仅含 Mod 及 release 清单的构建产物，不能使用运行中的全游戏目录。缓存包含锁内官方 ZIP 的 `<sha256>.zip` 文件，缺失即失败，工具不下载。它保持基底文件不变，仅加入两款批准 Mod、上述 PillarRevive 配置、`[Game] LobbySize = 6`、来源记录和新的清单；`runtimeVerified` 保持 false。基底丢失后须按 [源码构建说明](building.zh-CN.md) 重建源码兼容组件和匹配的 ServerTools/MMHOOK，并重新验证，不能依靠这个官方包锁恢复完整服务。
 
 部署独立于组装：服务器须正常停止后更新 Mod 目录和 release 清单，将这两份配置同步至实际 `runtime/BepInEx/config/` 及 `/opt/ror2/data/bepinex-config/`，同时设 `MAX_PLAYERS=6`。应检查配置目录是否为符号链接；当前手工 overlay 部署中它是实目录，不能假定复制到另一目录即可生效。工具不 SSH、不部署、不启动游戏；新的 assembly 清单通过不替代上文真实多人和复活验收。
 

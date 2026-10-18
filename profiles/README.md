@@ -39,7 +39,7 @@ V6镜像为 `284f668f0912`，独立运行证据见 `output/router-v6-game-ready.
 
 ## 本地源码overlay组装
 
-新提交的 `steam-25921972-source-overlay.experimental.lock.json` 是v4官方包的**基础锁**，用于 `tools/mods.py install` 生成overlay输入；不是可直接运行的完整锁。官方包lock负责固定下载来源，不能表达本地维护补丁。使用 [native_overlay工具](../tools/native_overlay.py) 在新目录组装；它要求官方1.0.4 DLL作为精确基底、带 `localPatchesSha256` 的维护构建报告及匹配Unity身份的配置，拒绝覆盖现有目录。完整分步命令见 [主README](../README.md)。以下参数用本地已审查路径替换：
+新提交的 `steam-25921972-source-overlay.experimental.lock.json` 是v4官方包的**基础锁**，用于 `tools/mods.py install` 生成overlay输入；不是可直接运行的完整锁。官方包lock负责固定下载来源，不能表达本地维护补丁。使用 [native_overlay工具](../tools/native_overlay.py) 在新目录组装；它要求官方1.0.4 DLL作为精确基底、带 `localPatchesSha256` 的维护构建报告及匹配Unity身份的配置，拒绝覆盖现有目录。完整分步命令见 [源码构建说明](../docs/building.zh-CN.md)。以下参数用本地已审查路径替换：
 
 ```sh
 python3 tools/native_overlay.py \
@@ -49,7 +49,7 @@ python3 tools/native_overlay.py \
   --output output/mods-maintained-overlay
 ```
 
-已提交配置只适用UnityPlayer SHA256 `fae6c04f23916263879196211ed241aee5f1f1b53ba4566bb99d4df8526cc105`，匹配GUID `EEDAE5B1946F4B92AD8D6B3BD79F6C551`；换Unity必须按主README的精确PDB流程重新审计。工具保留原官方DLL为 `.disabled`、复制源码DLL和配置、记录源码/构建/许可证与native兼容元数据；若基底有release.json则同步文件清单和overlay来源。`runtimeVerified` 保持false，组装成功不自动代表部署通过。此CLI面向新的维护候选；此前V5诊断DLL没有维护补丁字段，不应冒充维护构建输入。部署前后仍要按 [实际验证状态](../docs/status.md) 分别记录每一个DLL哈希的真实结果。
+已提交配置只适用UnityPlayer SHA256 `fae6c04f23916263879196211ed241aee5f1f1b53ba4566bb99d4df8526cc105`，匹配GUID `EEDAE5B1946F4B92AD8D6B3BD79F6C551`；换Unity必须按源码构建说明的精确PDB流程重新审计。工具保留原官方DLL为 `.disabled`、复制源码DLL和配置、记录源码/构建/许可证与native兼容元数据；若基底有release.json则同步文件清单和overlay来源。`runtimeVerified` 保持false，组装成功不自动代表部署通过。此CLI面向新的维护候选；此前V5诊断DLL没有维护补丁字段，不应冒充维护构建输入。部署前后仍要按 [实际验证状态](../docs/status.md) 分别记录每一个DLL哈希的真实结果。
 
 2026-10-17 查询 [R2API_Core 官方版本 API](https://thunderstore.io/api/experimental/package/RiskofThunder/R2API_Core/) 时最新版仍为 5.3.0。实际运行报告其构建目标游戏版本 1.4.1，而当前游戏为 1.5.0；此警告必须保留，不能修改游戏版本、认证检查或 R2API 警告来宣称兼容。最终采用哪个锁，应以完整真实测试结果确定。
 
@@ -57,7 +57,7 @@ python3 tools/native_overlay.py \
 
 `approved-server-only-6.lock.json` 在上述 8 个官方基础包上增加 `Moffein-TooManyFriends-1.2.5` 与 `Thrayonlosa-PillarRevive-1.1.2`，保留现有基础包的版本和 SHA256。它仍然只是**官方归档来源锁**：其中 FPTS 1.0.4 是官方原件，不包含本地维护的原生兼容补丁、精确 Unity 配置、ServerTools 或生成的 MMHOOK。**不能把 `tools/mods.py install` 对此锁的裸输出直接部署；它会失去已修正的 native ABI。**
 
-使用 [approved_server6 工具](../tools/approved_server6.py) 从保留的、完整的 **V7 Mod staging** 离线组装新候选。基底是 `output/mods-server-v7` 这一类仅包含 Mod 文件及 `release.json` 的构建产物；运行中的完整游戏目录、单纯官方包展开目录和已被 BepInEx 改写配置的运行目录都不能代替它。工具校验整个基底清单、8 包基础锁、游戏/补丁身份，以及已审查的 FPTS overlay、Native Guard、ServerTools `022d5abc…` 和 MMHOOK 的精确哈希。基底丢失时须按主 README 的源码 overlay / ServerTools / MMHOOK 流程重新构建并验证，不能靠官方包锁绕过此要求。
+使用 [approved_server6 工具](../tools/approved_server6.py) 从保留的、完整的 **V7 Mod staging** 离线组装新候选。基底是 `output/mods-server-v7` 这一类仅包含 Mod 文件及 `release.json` 的构建产物；运行中的完整游戏目录、单纯官方包展开目录和已被 BepInEx 改写配置的运行目录都不能代替它。工具校验整个基底清单、8 包基础锁、游戏/补丁身份，以及已审查的 FPTS overlay、Native Guard、ServerTools `022d5abc…` 和 MMHOOK 的精确哈希。基底丢失时须按源码构建说明及 ServerTools / MMHOOK 记录重新构建并验证，不能靠官方包锁绕过此要求。
 
 在仓库根目录运行，以下输出目录必须尚不存在：
 
