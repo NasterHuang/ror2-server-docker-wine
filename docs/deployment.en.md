@@ -1,4 +1,4 @@
-# Deploying RainHost
+# Deploying the Risk of Rain 2 Docker/Wine server
 
 English · [简体中文](deployment.md) · [Home](../README.md)
 
@@ -24,15 +24,15 @@ You also need:
 Run the shell commands below on the Linux build/deployment host from the repository root, unless a step says otherwise.
 
 ```sh
-git clone https://github.com/NasterHuang/ror2-rainhost.git
-cd ror2-rainhost
+git clone https://github.com/NasterHuang/ror2-server-docker-wine.git
+cd ror2-server-docker-wine
 cp .env.example .env
 chmod 600 .env
 mkdir -p config/steamworks mods data output
 cp RoR2Patcher/manifests/steam-build-25921972.deferred-server.experimental.json config/patch-manifest.json
 ```
 
-Keep `COMPOSE_PROJECT_NAME=rains` in `.env`. Existing router helpers expect that project name and `rains-ror2-server-1`; the checkout folder can still be named `ror2-rainhost`. The rename does not require moving `/opt/ror2` or changing plugin identifiers.
+Keep `COMPOSE_PROJECT_NAME=rains` in `.env`. Existing router helpers expect that project name and `rains-ror2-server-1`; the checkout folder can still be named `ror2-server-docker-wine`. The rename does not require moving `/opt/ror2` or changing plugin identifiers.
 
 ## 2. Export and check the game
 
@@ -62,7 +62,7 @@ If it differs, stop and audit that game build. Changing the expected hash alone 
 The directory layout should be:
 
 ```text
-ror2-rainhost/
+ror2-server-docker-wine/
   .env
   game/                         # clean Windows game snapshot
   config/
@@ -132,9 +132,9 @@ Prepare on a separate x86 Linux build host or Linux VM with a filesystem that pr
 ```sh
 docker compose build
 docker compose run --rm --no-deps ror2-server prepare
-docker save -o output/rainhost-image.tar ror2-local:experimental
-tar -cpf output/rainhost-data.tar -C data runtime bepinex-config
-sha256sum output/rainhost-image.tar output/rainhost-data.tar > output/rainhost-transfer.sha256
+docker save -o output/ror2-server-image.tar ror2-local:experimental
+tar -cpf output/ror2-server-data.tar -C data runtime bepinex-config
+sha256sum output/ror2-server-image.tar output/ror2-server-data.tar > output/ror2-server-transfer.sha256
 ```
 
 Replace `ror2-local:experimental` if you set a different `ROR2_IMAGE`. This archive command assumes the modded preparation created `bepinex-config/`. Copy both archives and their checksums to the router privately, verify the hashes, then load the image with `docker load -i`. Keep the clean source and a known-good rollback copy on the workstation.

@@ -1,6 +1,6 @@
 # 历史部署工程记录
 
-本文保留改名 RainHost 前的部署观察和实现细节，包含当时的设备状态及配置。安装步骤请优先阅读 [当前中文指南](deployment.md) 或 [English guide](deployment.en.md)。以下内容是历史记录，不是新一轮实机验证。
+本文保留整理前的部署观察和实现细节，包含当时的设备状态及配置。安装步骤请优先阅读 [当前中文指南](deployment.md) 或 [English guide](deployment.en.md)。以下内容是历史记录，不是新一轮实机验证。
 
 # Docker 部署与维护
 

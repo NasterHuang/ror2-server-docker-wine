@@ -1,17 +1,28 @@
-# RainHost
+# Risk of Rain 2 Server — Docker/Wine Implementation
 
-**A home for your Risk of Rain 2 server.**
+This project implements **one way to run a Risk of Rain 2 game server on Linux**: apply build-specific patches to a clean Windows game copy, route its startup and networking through the game's existing server code, and run that copy under Wine inside Docker.
 
 English · [简体中文](README.zh-CN.md)
 
-[![Checks](https://github.com/NasterHuang/ror2-rainhost/actions/workflows/ci.yml/badge.svg)](https://github.com/NasterHuang/ror2-rainhost/actions/workflows/ci.yml)
+[![Checks](https://github.com/NasterHuang/ror2-server-docker-wine/actions/workflows/ci.yml/badge.svg)](https://github.com/NasterHuang/ror2-server-docker-wine/actions/workflows/ci.yml)
 [![License: GPL-3.0](https://img.shields.io/badge/license-GPL--3.0-blue.svg)](LICENSE)
 
-RainHost is a project for running a Risk of Rain 2 server on an x86 Linux machine, including a small home server or an ImmortalWrt router. The server runs under Wine in Docker; friends join from the regular Steam game without installing a separate client pack.
+## How it works
 
-The idea is simple: let the server stay on while the gaming PC is off. Most of the work here goes into making that practical—starting the game without a desktop Steam client, keeping game files and mods in sync, and making failures easier to diagnose.
+The game simulation still runs in the original Windows executable and Unity assemblies. The project changes how that game copy starts and hosts a session:
 
-This started from [albodin/RoR2Server](https://github.com/albodin/RoR2Server). RainHost keeps that history and adds build-specific patches, maintained compatibility code, pinned mod profiles, and deployment tools for ImmortalWrt.
+1. **Patch a separate, verified game copy.** `RoR2Patcher` checks the clean `RoR2.dll` hash, method signatures, and IL locations before applying the reviewed manifest. The deferred-server profile skips the desktop Steam client initialization block, selects the game's existing dummy user manager, and defers real Steam game-server creation until the normal `host` path, after the game catalogs have loaded. Reviewed network calls use the server singleton.
+2. **Run the Windows game headlessly on Linux.** Wine provides the Windows compatibility layer. The supervisor starts the game with `-batchmode -nographics` and supplies an Xvfb display for the runtime. Docker packages Wine and the tools, mounts the game source read-only, and keeps the prepared runtime, configuration, and Wine prefix in persistent storage.
+3. **Handle the exact Unity/mod combination.** The modded configuration uses BepInEx and build-specific compatibility components. The maintained FPTS overlay and Wwise adapter address the native serialization and loading issues found in the recorded environment. Each component must match the reviewed game and dependency versions.
+4. **Use the game's real server connection path.** The original build identity and Steam authentication checks remain in place. Players connect from the regular Steam game; this approach does not require them to install the server patches. FRP can optionally relay UDP traffic when direct access is unavailable; it does not implement the server itself.
+
+```text
+Clean Windows game copy → reviewed assembly patches + matching compatibility components
+                        → Wine / headless Unity inside Docker on Linux
+                        → game server ← Steam players (direct UDP or optional FRP relay)
+```
+
+This is a conversion of the game's startup and hosting path, not a reimplementation of its simulation or protocol. It can run on an x86 Linux server or ImmortalWrt router. The code builds on [albodin/RoR2Server](https://github.com/albodin/RoR2Server), with additional exact-build checks, compatibility work, and deployment tooling.
 
 ## Where things stand
 
@@ -36,8 +47,8 @@ The repository contains source and configuration templates. You supply your own 
 Start with the **[English deployment guide](docs/deployment.en.md)**. It covers the inputs you need, configuration, Docker startup, a storage-limited router setup, player connections, and rollback. There is a matching **[Chinese guide](docs/deployment.md)**.
 
 ```sh
-git clone https://github.com/NasterHuang/ror2-rainhost.git
-cd ror2-rainhost
+git clone https://github.com/NasterHuang/ror2-server-docker-wine.git
+cd ror2-server-docker-wine
 cp .env.example .env
 ```
 
@@ -66,7 +77,7 @@ FRP players use the relay's game port instead. See the deployment guide before o
 
 Some engineering notes are currently in Chinese. References to `output/` point to local test artifacts, not public downloads. Older client test packages are historical diagnostics; players do not need them to join.
 
-## Working on RainHost
+## Development
 
 Python 3.11+ and the .NET 8 SDK are enough to run the offline checks:
 
@@ -77,8 +88,8 @@ dotnet run --project RoR2Patcher/tests/Patcher.Tests.csproj
 
 These use synthetic inputs rather than proprietary game assemblies. See [contributing](CONTRIBUTING.md) for patch-review and test expectations, and [security](SECURITY.md) before sharing logs.
 
-RainHost was previously published as `rains`. Internal `Rains.*` plugin identifiers, `/opt/ror2` paths, and the Compose project name `rains` are retained so a documentation rename does not disrupt existing deployments.
+For compatibility with existing deployments, internal `Rains.*` plugin identifiers, `/opt/ror2` paths, and the Compose project name `rains` are retained. The descriptive repository name does not change those runtime identities.
 
 ## Credits and license
 
-Thanks to the original RoR2Server author and the mod authors whose work makes this experiment possible. RainHost retains [GPL-3.0](LICENSE); the vendored FPTS source retains its LGPL-3.0 license. See [third-party notices](THIRD_PARTY_NOTICES.md) for the source records. Risk of Rain 2, Steam, and Unity belong to their respective owners; this is an unofficial project.
+Thanks to the original RoR2Server author and the mod authors whose work makes this experiment possible. This implementation retains [GPL-3.0](LICENSE); the vendored FPTS source retains its LGPL-3.0 license. See [third-party notices](THIRD_PARTY_NOTICES.md) for the source records. Risk of Rain 2, Steam, and Unity belong to their respective owners; this is an unofficial project.

@@ -1,17 +1,28 @@
-# RainHost
+# 雨中冒险 2 游戏服务器：Docker/Wine 实现方案
 
-**给《雨中冒险 2》找个能一直开着的家。**
+本项目是**《雨中冒险 2》游戏服务器的一种实现方法**：对干净的 Windows 原版游戏副本应用精确构建补丁，让它通过游戏已有的服务端代码完成启动和联机，再用 Wine 将这份游戏运行在 Linux 的 Docker 容器中。
 
 [English](README.md) · 简体中文
 
-[![自动检查](https://github.com/NasterHuang/ror2-rainhost/actions/workflows/ci.yml/badge.svg)](https://github.com/NasterHuang/ror2-rainhost/actions/workflows/ci.yml)
+[![自动检查](https://github.com/NasterHuang/ror2-server-docker-wine/actions/workflows/ci.yml/badge.svg)](https://github.com/NasterHuang/ror2-server-docker-wine/actions/workflows/ci.yml)
 [![许可证：GPL-3.0](https://img.shields.io/badge/license-GPL--3.0-blue.svg)](LICENSE)
 
-RainHost 想做的事很简单：让家里的 Linux 小主机或 x86 软路由负责开服，自己的游戏电脑关机后，服务器还能继续运行。朋友从 Steam 正常启动《雨中冒险 2》就能连接，不用另外装一套客户端整合包。
+## 实现原理
 
-服务端通过 Docker 和 Wine 运行。这个仓库主要处理开服时那些麻烦的地方：没有桌面 Steam 客户端时怎么启动、游戏更新后怎样判断补丁还能不能用、Mod 怎么固定版本，以及服务器出问题时怎么查、怎么退回上一版。
+游戏逻辑仍由原版 Windows 可执行文件和 Unity 程序集执行。本项目主要调整这份游戏副本的启动及开服路径：
 
-项目从 [albodin/RoR2Server](https://github.com/albodin/RoR2Server) 改起，保留了上游历史，也加入了针对具体游戏构建的补丁、兼容组件、Mod 配置和 ImmortalWrt 部署工具。
+1. **核对原版，再修改独立副本。** `RoR2Patcher` 先检查原版 `RoR2.dll` 的哈希、方法签名和 IL 位置，再按审核清单打补丁。deferred-server 方案跳过桌面 Steam 客户端初始化代码，使用游戏已有的 dummy user manager，并把真正的 Steam game-server 创建推迟到资源目录加载完成后的正常 `host` 路径；相关网络调用改用服务端实例。
+2. **通过 Wine 在 Linux 无图形运行。** Wine 提供 Windows 兼容层，启动器以 `-batchmode -nographics` 启动游戏，并提供 Xvfb 显示环境。Docker 负责封装 Wine 和工具、只读挂载原版来源，以及持久保存准备好的 runtime、配置和 Wine prefix。
+3. **适配特定 Unity 与 Mod 组合。** 带 Mod 的配置使用 BepInEx 和按构建核对的兼容组件。维护版 FPTS overlay、Wwise 适配组件分别处理记录中遇到的原生序列化与加载问题；这些组件必须与审核过的游戏和依赖版本匹配。
+4. **沿用游戏的真实联机与认证。** 原始构建身份和 Steam 认证检查保持不变，玩家从 Steam 原版游戏连接，无需安装服务端补丁。无法直接连接时，可以用 FRP 中转 UDP；FRP 只负责转发流量，游戏服务器仍由前面的游戏进程承担。
+
+```text
+Windows 原版游戏副本 → 审核过的程序集补丁与匹配的兼容组件
+                    → Linux Docker 容器中的 Wine / 无图形 Unity
+                    → 游戏服务器 ← Steam 玩家（UDP 直连或可选 FRP 中转）
+```
+
+因此，这是一套利用原版游戏代码改造启动和开服路径的方案，没有重新实现游戏逻辑或网络协议。部署目标可以是 x86 Linux 主机，也可以是 ImmortalWrt 软路由。代码基于 [albodin/RoR2Server](https://github.com/albodin/RoR2Server)，在其基础上补充了精确构建审查、兼容维护和部署工具。
 
 ## 现在能用到什么程度
 
@@ -36,8 +47,8 @@ RainHost 想做的事很简单：让家里的 Linux 小主机或 x86 软路由�
 先看 **[中文版部署指南](docs/deployment.md)**，里面按准备文件、配置、Docker 启动、软路由单副本部署、玩家连接和回滚的顺序写了步骤。也有对应的 **[英文版](docs/deployment.en.md)**。
 
 ```sh
-git clone https://github.com/NasterHuang/ror2-rainhost.git
-cd ror2-rainhost
+git clone https://github.com/NasterHuang/ror2-server-docker-wine.git
+cd ror2-server-docker-wine
 cp .env.example .env
 ```
 
@@ -77,7 +88,7 @@ dotnet run --project RoR2Patcher/tests/Patcher.Tests.csproj
 
 这些检查使用合成数据，不需要专有游戏程序集。提交修改前可以看看 [贡献指南](CONTRIBUTING.md)；分享日志前请先按 [安全说明](SECURITY.md) 删除私密信息。
 
-项目之前叫 `rains`。现有 `Rains.*` 插件标识、`/opt/ror2` 路径和 Compose 项目名 `rains` 继续保留，避免改个名字就影响已经部署的服务。
+为兼容已有部署，内部 `Rains.*` 插件标识、`/opt/ror2` 路径和 Compose 项目名 `rains` 继续保留；仓库的描述性名称不会改变这些运行标识。
 
 ## 致谢和许可
 

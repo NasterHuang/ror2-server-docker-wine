@@ -1,4 +1,4 @@
-# 部署 RainHost
+# 部署雨中冒险 2 Docker/Wine 游戏服务器
 
 [English](deployment.en.md) · 简体中文 · [项目首页](../README.zh-CN.md)
 
@@ -24,15 +24,15 @@
 除非特别说明，下面的 shell 命令都在 Linux 构建或部署机器的仓库根目录执行。
 
 ```sh
-git clone https://github.com/NasterHuang/ror2-rainhost.git
-cd ror2-rainhost
+git clone https://github.com/NasterHuang/ror2-server-docker-wine.git
+cd ror2-server-docker-wine
 cp .env.example .env
 chmod 600 .env
 mkdir -p config/steamworks mods data output
 cp RoR2Patcher/manifests/steam-build-25921972.deferred-server.experimental.json config/patch-manifest.json
 ```
 
-在 `.env` 中保留 `COMPOSE_PROJECT_NAME=rains`。现有软路由脚本按这个项目名和 `rains-ror2-server-1` 识别容器，仓库目录仍可叫 `ror2-rainhost`。改项目名字不需要搬动 `/opt/ror2`，也不需要更改插件标识。
+在 `.env` 中保留 `COMPOSE_PROJECT_NAME=rains`。现有软路由脚本按这个项目名和 `rains-ror2-server-1` 识别容器，仓库目录仍可叫 `ror2-server-docker-wine`。改项目名字不需要搬动 `/opt/ror2`，也不需要更改插件标识。
 
 ## 2. 导出并核对游戏
 
@@ -62,7 +62,7 @@ dotnet run --project RoR2Patcher -- --inspect --input 'game/Risk of Rain 2_Data/
 目录结构应当是：
 
 ```text
-ror2-rainhost/
+ror2-server-docker-wine/
   .env
   game/                         # 原版 Windows 游戏快照
   config/
@@ -132,9 +132,9 @@ docker compose exec ror2-server python3 /opt/ror2/tools/runtime.py query --host 
 ```sh
 docker compose build
 docker compose run --rm --no-deps ror2-server prepare
-docker save -o output/rainhost-image.tar ror2-local:experimental
-tar -cpf output/rainhost-data.tar -C data runtime bepinex-config
-sha256sum output/rainhost-image.tar output/rainhost-data.tar > output/rainhost-transfer.sha256
+docker save -o output/ror2-server-image.tar ror2-local:experimental
+tar -cpf output/ror2-server-data.tar -C data runtime bepinex-config
+sha256sum output/ror2-server-image.tar output/ror2-server-data.tar > output/ror2-server-transfer.sha256
 ```
 
 若设置了其他 `ROR2_IMAGE`，请替换 `ror2-local:experimental`。上面的归档命令以 Mod 准备流程已经生成 `bepinex-config/` 为前提。将两个归档和校验文件私下传到软路由，核对哈希后用 `docker load -i` 加载镜像。原版和已知可用的回滚副本留在电脑。
